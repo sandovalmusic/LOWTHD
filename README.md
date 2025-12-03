@@ -169,17 +169,30 @@ J-A:   blendMax=1.0, threshold=0.60, width=1.2
 - Final makeup: +6dB (2.0x)
 - Net result: Unity gain with clean headroom before saturation
 
-### Jiles-Atherton Physics Model
+### Jiles-Atherton Hysteresis: Bass "Stickiness"
+
+The Jiles-Atherton model simulates how magnetic domains in tape oxide behave. When the audio signal changes direction, the magnetic particles don't respond instantly—they exhibit *hysteresis*, a lag that depends on the signal's history.
+
+**Why this matters for bass:**
+- Low frequencies have slower zero-crossings, giving domains more time to "stick"
+- The coercivity (k) parameter controls how much force is needed to flip domains
+- Higher coercivity = more stickiness = bass notes feel "thicker" and more sustained
+- This is why tape makes kicks and bass guitar sound fuller without EQ
+
+**How the blend works:**
+- At low levels: Hysteresis path is silent (clean, transparent response)
+- At high levels: Hysteresis fades in via envelope follower
+- Result: Clean quiet passages, magnetic warmth on loud transients
 
 **Ampex (Master):**
-- Domain density (a): 200 - Nearly linear
-- Coercivity (k): 0.001 - Minimal hysteresis
-- Reversibility (c): 0.9999 - Fully reversible
+- Domain density (a): 200 - Nearly linear response
+- Coercivity (k): 0.001 - Minimal stickiness (clean mastering character)
+- Reversibility (c): 0.9999 - Domains flip easily
 
 **Studer (Tracks):**
-- Domain density (a): 120 - Softer knee
-- Coercivity (k): 0.003 - Subtle memory
-- Reversibility (c): 0.995 - Slight stickiness
+- Domain density (a): 120 - Softer saturation knee
+- Coercivity (k): 0.003 - More stickiness (punchy tracking character)
+- Reversibility (c): 0.995 - Slight domain memory = bass "glue"
 
 ## Pre-Built Plugins
 
@@ -228,7 +241,14 @@ LOWTHD/
 │       ├── PluginEditor.cpp       # UI
 │       └── PluginEditor.h
 └── Tests/
-    └── Test_Comprehensive.cpp     # THD and E/O ratio validation
+    ├── run_all_tests.sh           # Master test runner
+    ├── Test_THDAccuracy.cpp       # THD vs level validation
+    ├── Test_HarmonicBalance.cpp   # E/O ratio validation
+    ├── Test_FrequencyResponse.cpp # Frequency response tests
+    ├── Test_Transparency.cpp      # Low-level purity tests
+    ├── Test_PhaseCoherence.cpp    # Parallel path validation
+    ├── Test_Stereo.cpp            # Stereo and azimuth tests
+    └── Test_Stability.cpp         # Edge case validation
 ```
 
 ## Credits
