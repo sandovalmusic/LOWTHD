@@ -46,7 +46,7 @@ We emulate this behavior with CCIR 30 IPS equalization curves:
 - Saturation processes the bass-heavy signal
 - **Re-emphasis** after saturation (restore highs to original level)
 
-Combined with the Jiles-Atherton hysteresis (which also affects bass more due to slower zero-crossings) and HF phase smear from the tape head, this creates the authentic tape frequency response: warm, saturated low-end with smooth, open highs. The phase smear is especially useful when applying HF shelf boosts—you can add more "air" without harshness.
+Combined with the Jiles-Atherton hysteresis (which also affects bass more due to slower zero-crossings) and HF phase smear from the tape head, this creates the authentic tape frequency response: warm, saturated low-end with smooth, open highs. The phase smear is especially useful when applying HF shelf boosts—you can add more brightness without harshness.
 
 ### Philosophy: Subtle by Design
 
@@ -99,7 +99,7 @@ We emulate this with a **4-stage dispersive allpass cascade**:
 - **Right channel**: Processing + azimuth delay
   - Ampex: 8 microseconds
   - Studer: 12 microseconds
-- Creates authentic tape stereo width and "air"
+- Creates authentic tape stereo width
 
 ## Controls
 
