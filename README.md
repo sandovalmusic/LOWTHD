@@ -15,6 +15,40 @@ Professional tape saturation plugin emulating the **Ampex ATR-102** (mastering) 
 
 **Master mode** emulates an Ampex ATR-102 stereo mastering deck. Use it on your master bus. Less tape memory, almost completely clean at low levels.
 
+### AC Bias Simulation
+
+Professional tape machines use AC bias - a high-frequency signal (approximately 150 kHz) combined with the audio before recording. This bias current keeps the magnetic particles in constant motion, which linearizes their response to the incoming audio signal.
+
+Without bias, tape exhibits significant hysteresis distortion. With proper bias, a machine like the ATR-102 measures nearly flat at normal operating levels. The characteristic nonlinearity only appears when signal levels approach tape saturation.
+
+The Jiles-Atherton hysteresis model is a physics-based description of ferromagnetic behavior. However, the standard implementation models unbiased magnetic recording - appropriate for consumer-grade equipment, but not for professional machines running calibrated bias.
+
+This plugin makes the physics behave like a properly-biased deck through three mechanisms:
+
+**Frequency-Selective Saturation**
+
+AC bias has a secondary effect: partial erasure of high-frequency content. This is why professional tape maintains clarity in the upper frequencies while exhibiting saturation in the low and mid range.
+
+LOWTHD replicates this by applying the CCIR 30 IPS de-emphasis curve before the saturation stage, then restoring the high frequencies afterward with the inverse curve. The nonlinear processing primarily affects bass and midrange content, matching the behavior of biased tape.
+
+**Level-Dependent Nonlinearity**
+
+On a properly-biased machine, hysteresis distortion is essentially inaudible at normal operating levels. The saturation characteristics only become apparent as the signal approaches the tape's maximum output level (MOL).
+
+The plugin implements this through a threshold-based crossfade system. At nominal levels, the signal path remains nearly linear. As input increases, the hysteresis processing is progressively introduced. At high levels, the full nonlinear behavior engages along with soft-clipping compression.
+
+This is a continuous transition, not a binary switch - replicating how bias effectiveness diminishes as the signal approaches saturation.
+
+**Dynamic Parameter Modulation**
+
+Within the Jiles-Atherton equations, certain parameters are adjusted in real-time based on signal level. At lower levels, these adjustments produce more linear behavior, simulating effective bias. At higher levels, the parameters shift toward standard ferromagnetic response, simulating bias breakdown.
+
+This achieves the functional result of AC bias without requiring simulation of the bias oscillator itself.
+
+At conservative input levels, LOWTHD introduces minimal coloration - consistent with a properly-calibrated ATR-102 operating at 0 VU. As levels increase into the +3 to +6 dB range, the expected saturation characteristics emerge: harmonic content, transient softening, and low-frequency thickening.
+
+Most tape emulations apply a fixed saturation curve regardless of input level. The distortion character remains constant; only the amount changes. LOWTHD models tape as a recording medium rather than an effect. The nonlinearity is an emergent property of the signal exceeding the linearizing capacity of the virtual bias - not a static curve applied uniformly to the signal.
+
 ### Hybrid Saturation Model
 
 Combines three complementary saturation stages:
