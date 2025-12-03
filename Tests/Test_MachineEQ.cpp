@@ -125,11 +125,14 @@ bool testStuderEQ(double sampleRate)
     };
 
     // Test frequencies and expected composite response (all filters combined)
+    // Fine-tuned to match Pro-Q4 reference targets
     std::vector<TestPoint> testPoints = {
-        {30.0, -5.5, 1.5, "HP rolloff (18dB/oct)"},
-        {50.0, -1.2, 0.8, "Low bass transition"},
-        {100.0, 1.3, 0.5, "Head bump peak"},
-        {200.0, -0.2, 0.5, "Post head-bump dip"},
+        {30.0, -2.0, 0.3, "HP rolloff (18dB/oct)"},
+        {38.0, 0.0, 0.2, "Unity crossing"},
+        {49.5, 0.55, 0.2, "Head bump 1"},
+        {69.5, 0.1, 0.2, "Between bumps"},
+        {110.0, 1.2, 0.2, "Head bump 2"},
+        {260.0, 0.05, 0.2, "Post bump flat"},
         {600.0, 0.2, 0.3, "Low-mid"},
         {1000.0, 0.15, 0.3, "Mid reference"},
         {5000.0, 0.1, 0.3, "Upper mid"},
@@ -167,8 +170,8 @@ bool testMachineSwitching()
     MachineEQ eq;
     eq.setSampleRate(96000.0); // Oversampled rate
 
-    // Test at 72Hz where Studer has -2.7dB dip, Ampex should be near flat
-    const double testFreq = 72.0;
+    // Test at 110Hz where Studer has prominent head bump (~+1.2dB), Ampex is lower (~+0.4dB)
+    const double testFreq = 110.0;
 
     eq.setMachine(MachineEQ::Machine::Ampex);
     double ampexResponse = testFrequencyResponse(eq, testFreq, 96000.0);
@@ -176,11 +179,11 @@ bool testMachineSwitching()
     eq.setMachine(MachineEQ::Machine::Studer);
     double studerResponse = testFrequencyResponse(eq, testFreq, 96000.0);
 
-    std::cout << "At 72Hz: Ampex=" << std::fixed << std::setprecision(2)
+    std::cout << "At 110Hz: Ampex=" << std::fixed << std::setprecision(2)
               << ampexResponse << "dB, Studer=" << studerResponse << "dB" << std::endl;
 
-    // Studer should be lower than Ampex at 72Hz (in the dip region)
-    bool passed = (studerResponse < ampexResponse);
+    // Studer should be higher than Ampex at 110Hz (prominent head bump)
+    bool passed = (studerResponse > ampexResponse);
     std::cout << "Machine switching: " << (passed ? "PASS" : "FAIL") << std::endl;
 
     return passed;
@@ -227,9 +230,9 @@ void printFrequencyResponse(MachineEQ::Machine machine, double sampleRate)
     eq.setSampleRate(sampleRate);
     eq.setMachine(machine);
 
-    std::vector<double> freqs = {20, 30, 40, 50, 63, 72, 80, 100, 125, 160, 200, 250, 315,
-                                  400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150,
-                                  4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000};
+    std::vector<double> freqs = {20, 28, 30, 38, 40, 49.5, 50, 63, 69.5, 70, 72, 80, 100, 105, 110, 125, 150, 160, 200, 250, 260, 315, 350,
+                                  400, 500, 630, 800, 1000, 1200, 1250, 1600, 2000, 2500, 3000, 3150,
+                                  4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000, 21500};
 
     std::cout << std::fixed << std::setprecision(2);
     for (double freq : freqs)

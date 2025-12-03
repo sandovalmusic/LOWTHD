@@ -47,11 +47,6 @@ private:
     juce::Slider outputTrimSlider;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputTrimAttachment;
 
-    // Tape Bump toggle
-    juce::Label tapeBumpLabel;
-    juce::ToggleButton tapeBumpButton;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> tapeBumpAttachment;
-
     // PPM Meter
     juce::Rectangle<float> meterBounds;
     float meterLevel = 0.0f;

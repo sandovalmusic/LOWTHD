@@ -122,22 +122,29 @@ private:
     Machine currentMachine = Machine::Ampex;
 
     // Ampex ATR-102 "Master" EQ
-    EQBiquad ampexHP;           // 20 Hz, 12 dB/oct
-    EQBiquad ampexBell1;        // 40 Hz, Q 1.58, +1.4 dB
-    EQBiquad ampexBell2;        // 65 Hz, Q 1.265, -2.0 dB
-    EQBiquad ampexBell3;        // 75 Hz, Q 0.8, +2.0 dB
-    EQBiquad ampexBell4;        // 230 Hz, Q 0.6, -0.8 dB
-    EQBiquad ampexBell5;        // 6000 Hz, Q 0.4, -0.6 dB
-    EQBiquad ampexBell6;        // 30000 Hz, Q 0.6, +2.3 dB
+    // Fine-tuned to match Pro-Q4 reference:
+    // Targets: 20Hz=-2.7dB, 28Hz=0dB, 40Hz=+1.15dB, 70Hz=+0.17dB, 105Hz=+0.3dB, 150Hz=0dB,
+    //          350Hz=-0.5dB, 1200Hz=-0.3dB, 3kHz=-0.45dB, 10kHz=0dB, 16kHz=-0.25dB, 21.5kHz=0dB
+    EQBiquad ampexHP;           // 20.5 Hz, 12 dB/oct
+    EQBiquad ampexBell1;        // 40 Hz, Q 1.58, +1.5 dB
+    EQBiquad ampexBell2;        // 65 Hz, Q 1.265, -3.5 dB
+    EQBiquad ampexBell3;        // 75 Hz, Q 0.8, +3.0 dB
+    EQBiquad ampexBell4;        // 150 Hz, Q 1.0, +0.2 dB
+    EQBiquad ampexBell5;        // 230 Hz, Q 0.6, -0.8 dB
+    EQBiquad ampexBell6;        // 3000 Hz, Q 0.6, -0.15 dB
+    EQBiquad ampexBell7;        // 6000 Hz, Q 0.4, -0.35 dB
+    EQBiquad ampexBell8;        // 30000 Hz, Q 0.6, +2.0 dB
     FirstOrderFilter ampexLP;   // 30000 Hz, 6 dB/oct
 
     // Studer A820 "Tracks" EQ
-    EQBiquad studerHP1;         // 30 Hz, 12 dB/oct
-    FirstOrderFilter studerHP2; // 30 Hz, 6 dB/oct (cascaded = 18 dB/oct total)
-    EQBiquad studerBell1;       // 32 Hz, Q 1.5, +0.4 dB
-    EQBiquad studerBell2;       // 72 Hz, Q 2.07, -2.7 dB
-    EQBiquad studerBell3;       // 85 Hz, Q 1.0, +3.2 dB
-    EQBiquad studerBell4;       // 180 Hz, Q 1.0, -0.8 dB
+    // Fine-tuned to match Pro-Q4 reference:
+    // Targets: 30Hz=-2dB, 38Hz=0dB, 49.5Hz=+0.55dB, 69.5Hz=+0.1dB, 110Hz=+1.2dB, 260Hz=+0.05dB
+    EQBiquad studerHP1;         // 27 Hz, 12 dB/oct (Q=1.0 for 3rd order Butterworth)
+    FirstOrderFilter studerHP2; // 27 Hz, 6 dB/oct (cascaded = 18 dB/oct total)
+    EQBiquad studerBell1;       // 49.5 Hz, Q 1.5, +0.7 dB (head bump 1)
+    EQBiquad studerBell2;       // 72 Hz, Q 2.07, -1.1 dB (dip)
+    EQBiquad studerBell3;       // 110 Hz, Q 1.0, +1.8 dB (head bump 2)
+    EQBiquad studerBell4;       // 180 Hz, Q 1.0, -0.7 dB
     EQBiquad studerBell5;       // 600 Hz, Q 0.8, +0.2 dB
     EQBiquad studerBell6;       // 2000 Hz, Q 1.0, +0.1 dB
     EQBiquad studerBell7;       // 5000 Hz, Q 1.0, +0.1 dB

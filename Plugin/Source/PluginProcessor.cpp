@@ -22,7 +22,6 @@ LowTHDTapeSimulatorAudioProcessor::LowTHDTapeSimulatorAudioProcessor()
     machineModeParam = parameters.getRawParameterValue (PARAM_MACHINE_MODE);
     inputTrimParam = parameters.getRawParameterValue (PARAM_INPUT_TRIM);
     outputTrimParam = parameters.getRawParameterValue (PARAM_OUTPUT_TRIM);
-    tapeBumpParam = parameters.getRawParameterValue (PARAM_TAPE_BUMP);
 
     // Register parameter listener for auto-gain linking
     parameters.addParameterListener (PARAM_INPUT_TRIM, this);
@@ -76,13 +75,6 @@ LowTHDTapeSimulatorAudioProcessor::createParameterLayout()
             float db = 20.0f * std::log10(value);
             return juce::String(db, 1) + " dB";
         }
-    ));
-
-    // Tape Bump (machine-specific EQ curve)
-    layout.add (std::make_unique<juce::AudioParameterBool> (
-        PARAM_TAPE_BUMP,
-        "Tape Bump",
-        true  // Default: enabled
     ));
 
     return layout;
@@ -174,7 +166,7 @@ void LowTHDTapeSimulatorAudioProcessor::prepareToPlay (double sampleRate, int sa
     tapeProcessorLeft.reset();
     tapeProcessorRight.reset();
 
-    // Set default Ampex ATR-102 parameters (Master mode, Tape Bump enabled)
+    // Set default Ampex ATR-102 parameters (Master mode, Machine EQ always on)
     const double defaultBias = 0.65;
     tapeProcessorLeft.setParameters (defaultBias, 1.0, true);
     tapeProcessorRight.setParameters (defaultBias, 1.0, true);
@@ -226,7 +218,6 @@ void LowTHDTapeSimulatorAudioProcessor::processBlock (juce::AudioBuffer<float>& 
     const int machineMode = static_cast<int> (*machineModeParam);
     const float inputTrimValue = *inputTrimParam;
     const float outputTrimValue = *outputTrimParam;
-    const bool tapeBumpEnabled = *tapeBumpParam > 0.5f;
 
     // Update processor parameters based on machine mode
     // Master mode (0) = Ampex ATR-102: bias=0.65, ultra-clean, E/O ~0.5
@@ -235,8 +226,9 @@ void LowTHDTapeSimulatorAudioProcessor::processBlock (juce::AudioBuffer<float>& 
     const double bias = (machineMode == 0) ? 0.65 : 0.82;
 
     // Set processor parameters (input gain = 1.0, we apply drive externally via inputTrim)
-    tapeProcessorLeft.setParameters (bias, 1.0, tapeBumpEnabled);
-    tapeProcessorRight.setParameters (bias, 1.0, tapeBumpEnabled);
+    // Machine EQ is always enabled (hardcoded true)
+    tapeProcessorLeft.setParameters (bias, 1.0, true);
+    tapeProcessorRight.setParameters (bias, 1.0, true);
 
     const int numSamples = buffer.getNumSamples();
     float peakLevel = 0.0f;

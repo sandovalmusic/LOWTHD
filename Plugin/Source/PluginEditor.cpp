@@ -83,24 +83,6 @@ LowTHDTapeSimulatorAudioProcessorEditor::LowTHDTapeSimulatorAudioProcessorEditor
         outputTrimSlider
     );
 
-    // Tape Bump toggle
-    tapeBumpLabel.setText ("Tape Bump", juce::dontSendNotification);
-    tapeBumpLabel.setFont (juce::FontOptions (14.0f, juce::Font::bold));
-    tapeBumpLabel.setJustificationType (juce::Justification::centredLeft);
-    tapeBumpLabel.setColour (juce::Label::textColourId, textColour);
-    addAndMakeVisible (tapeBumpLabel);
-
-    tapeBumpButton.setButtonText ("");
-    tapeBumpButton.setColour (juce::ToggleButton::tickColourId, accentColour);
-    tapeBumpButton.setColour (juce::ToggleButton::tickDisabledColourId, backgroundColour.brighter (0.3f));
-    addAndMakeVisible (tapeBumpButton);
-
-    tapeBumpAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
-        audioProcessor.getValueTreeState(),
-        LowTHDTapeSimulatorAudioProcessor::PARAM_TAPE_BUMP,
-        tapeBumpButton
-    );
-
     // Set window size
     setSize (500, 400);
 
@@ -217,11 +199,6 @@ void LowTHDTapeSimulatorAudioProcessorEditor::resized()
     auto machineModeArea = controlArea.removeFromTop (controlHeight + 10);
     machineModeLabel.setBounds (machineModeArea.removeFromLeft (80));
     machineModeCombo.setBounds (machineModeArea.removeFromLeft (120));
-
-    // Tape Bump toggle (same row, right side)
-    machineModeArea.removeFromLeft (40);  // Spacing
-    tapeBumpLabel.setBounds (machineModeArea.removeFromLeft (90));
-    tapeBumpButton.setBounds (machineModeArea.removeFromLeft (30).reduced (0, 2));
 
     controlArea.removeFromTop (15);  // Spacing
 
