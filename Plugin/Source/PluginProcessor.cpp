@@ -57,7 +57,7 @@ LowTHDTapeSimulatorAudioProcessor::createParameterLayout()
         juce::String(),
         juce::AudioProcessorParameter::genericParameter,
         [](float value, int) {
-            float db = 20.0f * std::log10f(value);
+            float db = 20.0f * std::log10(value);
             return juce::String(db, 1) + " dB";
         }
     ));
@@ -72,7 +72,7 @@ LowTHDTapeSimulatorAudioProcessor::createParameterLayout()
         juce::String(),
         juce::AudioProcessorParameter::genericParameter,
         [](float value, int) {
-            float db = 20.0f * std::log10f(value);
+            float db = 20.0f * std::log10(value);
             return juce::String(db, 1) + " dB";
         }
     ));
@@ -286,7 +286,7 @@ void LowTHDTapeSimulatorAudioProcessor::processBlock (juce::AudioBuffer<float>& 
 
     // Update meter level (convert to dB)
     if (peakLevel > 0.0001f)
-        currentLevelDB.store (20.0f * std::log10f (peakLevel));
+        currentLevelDB.store (20.0f * std::log10 (peakLevel));
     else
         currentLevelDB.store (-96.0f);
 }
