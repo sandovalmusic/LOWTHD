@@ -15,6 +15,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
+# Determine plugin formats based on platform
+if(APPLE)
+    set(PLUGIN_FORMATS VST3 AU)
+else()
+    set(PLUGIN_FORMATS VST3)
+endif()
+
 # Low THD Tape Sim (Ampex ATR-102 + Studer A820 modes)
 # NOTE: Target name "LowTHDTape" and codes must match original release
 # for DAWs (like Reaper) to recognize as the same plugin
@@ -22,7 +29,7 @@ juce_add_plugin(LowTHDTape
     COMPANY_NAME "TapeHysteresis"
     PLUGIN_MANUFACTURER_CODE TpHs
     PLUGIN_CODE LwTH
-    FORMATS VST3 $<$<PLATFORM_ID:Darwin>:AU>
+    FORMATS ${PLUGIN_FORMATS}
     PRODUCT_NAME "Low THD Tape Sim"
     DESCRIPTION "Ampex ATR-102 + Studer A820 - Precision tape emulation"
     IS_SYNTH FALSE
