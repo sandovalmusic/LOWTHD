@@ -85,7 +85,7 @@ jobs:
         with:
           name: LOWTHD-macOS-AU
           path: build/**/*.component
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Upload VST3 (Linux)
         if: runner.os == 'Linux'
