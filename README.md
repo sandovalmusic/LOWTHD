@@ -21,116 +21,43 @@ LOWTHD models what actually matters—the tape and heads—rather than the ampli
 | **Master** | Ampex ATR-102 | Master bus | Cleaner, faster | ~0.08% | 0.53 (odd) |
 | **Tracks** | Studer A820 | Individual tracks | Softer, warmer | ~0.24% | 1.09 (even) |
 
-**Tracks mode** emulates a Studer A820 24-track machine. Use it on individual tracks (drums, bass, vocals, guitars). More tape memory, some saturation at low levels.
-
-**Master mode** emulates an Ampex ATR-102 stereo mastering deck. Use it on your master bus. Less tape memory, almost completely clean at low levels.
-
 ### AC Bias Simulation
 
-Professional tape machines use AC bias - a high-frequency signal (approximately 150 kHz) combined with the audio before recording. This bias current keeps the magnetic particles in constant motion, which linearizes their response to the incoming audio signal.
+Professional tape machines use AC bias—a high-frequency signal (approximately 150 kHz) combined with the audio before recording. This bias current keeps the magnetic particles in constant motion, linearizing their response at normal operating levels. The characteristic nonlinearity only appears when signal levels approach tape saturation.
 
-Without bias, tape exhibits significant hysteresis distortion. With proper bias, a machine like the ATR-102 measures nearly flat at normal operating levels. The characteristic nonlinearity only appears when signal levels approach tape saturation.
+The Jiles-Atherton hysteresis model is a physics-based description of ferromagnetic behavior, but the standard implementation models *unbiased* magnetic recording—appropriate for consumer-grade equipment, not professional machines running calibrated bias.
 
-The Jiles-Atherton hysteresis model is a physics-based description of ferromagnetic behavior. However, the standard implementation models unbiased magnetic recording - appropriate for consumer-grade equipment, but not for professional machines running calibrated bias.
-
-This plugin makes the physics behave like a properly-biased deck through three mechanisms:
+LOWTHD simulates the effect of proper bias through three mechanisms:
 
 **Frequency-Selective Saturation**
 
-AC bias has a secondary effect: partial erasure of high-frequency content. This is why professional tape maintains clarity in the upper frequencies while exhibiting saturation in the low and mid range.
-
-LOWTHD replicates this by applying the CCIR 30 IPS de-emphasis curve before the saturation stage, then restoring the high frequencies afterward with the inverse curve. The nonlinear processing primarily affects bass and midrange content, matching the behavior of biased tape.
+AC bias partially erases high-frequency content, which is why professional tape maintains treble clarity while saturating the bass and midrange. We replicate this by applying the CCIR 30 IPS de-emphasis curve before saturation (cutting highs ~7-9dB), then restoring them afterward with the inverse curve.
 
 **Level-Dependent Nonlinearity**
 
-On a properly-biased machine, hysteresis distortion is essentially inaudible at normal operating levels. The saturation characteristics only become apparent as the signal approaches the tape's maximum output level (MOL).
-
-The plugin implements this through a threshold-based crossfade system. At nominal levels, the signal path remains nearly linear. As input increases, the hysteresis processing is progressively introduced. At high levels, the full nonlinear behavior engages along with soft-clipping compression.
-
-This is a continuous transition, not a binary switch - replicating how bias effectiveness diminishes as the signal approaches saturation.
+On a properly-biased machine, hysteresis is inaudible at normal levels—it only emerges as signal approaches the maximum output level (MOL). The plugin implements this through a threshold-based crossfade: at nominal levels the signal path is nearly linear; as input increases, hysteresis and saturation progressively engage.
 
 **Dynamic Parameter Modulation**
 
-Within the Jiles-Atherton equations, certain parameters are adjusted in real-time based on signal level. At lower levels, these adjustments produce more linear behavior, simulating effective bias. At higher levels, the parameters shift toward standard ferromagnetic response, simulating bias breakdown.
+Within the Jiles-Atherton equations, parameters adjust in real-time based on signal level. Lower levels produce more linear behavior (simulating effective bias); higher levels shift toward full ferromagnetic nonlinearity (simulating bias breakdown).
 
-This achieves the functional result of AC bias without requiring simulation of the bias oscillator itself.
+The result: LOWTHD models tape as a recording medium rather than an effect. The nonlinearity is emergent—a consequence of signal exceeding what the virtual bias can linearize—not a static curve applied uniformly.
 
-At conservative input levels, LOWTHD introduces minimal coloration - consistent with a properly-calibrated ATR-102 operating at 0 VU. As levels increase into the +3 to +6 dB range, the expected saturation characteristics emerge: harmonic content, transient softening, and low-frequency thickening.
+### Saturation Architecture
 
-Most tape emulations apply a fixed saturation curve regardless of input level. The distortion character remains constant; only the amount changes. LOWTHD models tape as a recording medium rather than an effect. The nonlinearity is an emergent property of the signal exceeding the linearizing capacity of the virtual bias - not a static curve applied uniformly to the signal.
+The plugin combines three complementary saturation stages:
 
-### Hybrid Saturation Model
+1. **Jiles-Atherton Hysteresis** — Physics-based magnetic domain modeling with history-dependent behavior. Blends in only at higher levels.
 
-Combines three complementary saturation stages:
+2. **Asymmetric Tanh Saturation** — Primary harmonic generation with DC-bias for even/odd balance. Ampex is odd-dominant (0.53 ratio); Studer is even-dominant (1.09 ratio).
 
-1. **Jiles-Atherton Hysteresis** - Physics-based magnetic domain modeling
-   - History-dependent behavior ("tape memory")
-   - Level-dependent blend (silent at low levels, fades in at high levels)
-   - Adds magnetic character without affecting low-level transparency
+3. **Level-Dependent Atan** — Soft-clipping that engages at high levels to hit MOL targets.
 
-2. **Asymmetric Tanh Saturation** - Primary harmonic generation
-   - DC-bias approach for controlled even/odd harmonic balance
-   - Ampex: 0.095 drive, 1.08 asymmetry (odd-dominant)
-   - Studer: 0.14 drive, 1.18 asymmetry (even-dominant)
+### HF Phase Smear
 
-3. **Level-Dependent Atan** - High-level knee steepening
-   - Blends in at high levels to hit MOL targets
-   - Ampex: Symmetric atan (preserves odd-dominant character)
-   - Studer: Asymmetric atan (preserves even-dominant character)
+Real tape heads create frequency-dependent phase shifts—higher frequencies experience slightly more delay due to head gap geometry. This subtly softens transients without dulling the highs.
 
-### Frequency-Dependent Saturation
-
-Real tape machines use high-frequency bias—an ultrasonic signal (~100kHz) added during recording that linearizes the magnetic response for treble frequencies. This bias current "protects" high frequencies from the nonlinear saturation that affects bass and midrange.
-
-The result: bass saturates and compresses while highs remain clean and extended. This is why tape sounds "warm" rather than "dull"—the saturation is frequency-selective by design.
-
-We emulate this behavior with CCIR 30 IPS equalization curves:
-
-- **De-emphasis** before saturation (cut highs ~7-9dB)
-- Saturation processes the bass-heavy signal
-- **Re-emphasis** after saturation (restore highs to original level)
-
-Combined with the Jiles-Atherton hysteresis (which also affects bass more due to slower zero-crossings) and HF phase smear from the tape head, this creates the authentic tape frequency response: warm, saturated low-end with smooth, open highs. The phase smear is especially useful when applying HF shelf boosts—you can add more brightness without harshness.
-
-### Philosophy: Subtle by Design
-
-**This plugin is not meant to be pushed hard.**
-
-Many tape plugins use relatively linear saturation curves that flatten dynamics when driven—the harder you push, the more everything gets squashed to the same level. This can sound impressive in isolation but kills transients and punch in a mix.
-
-This plugin takes the opposite approach: **extremely level-dependent saturation curves** carefully tuned for realistic input levels. At -6dB to +3dB, you get the subtle nonlinearities that make tape sound like tape. The saturation stages (tanh, atan, J-A) only blend in progressively as level increases, preserving dynamics at normal operating levels.
-
-Slamming the gain defeats the entire design. If you want aggressive tape "smash," other plugins will do that better. This one is built for the cumulative effect of many small colorations:
-
-- **Hysteresis** adds ~0.01-0.05% THD with frequency-dependent phase shifts
-- **Asymmetric saturation** generates controlled even/odd harmonics at <1%
-- **De-emphasis/re-emphasis** creates ~3-4dB of frequency-dependent saturation difference
-- **HF phase smear** softens transients by 10-21μs without dulling the highs
-- **Azimuth delay** adds 8-12μs of stereo decorrelation
-
-Individually, these are nearly imperceptible. Together, they create the "tape sound"—fuller bass, cohesive mids, smooth highs, and stereo width that makes sources sit better in a mix.
-
-**Recommended usage:**
-- Keep Drive between -6dB and +3dB for mixing
-- Use +6dB to +9dB only for intentional color
-- Stack on multiple tracks at low drive for cumulative effect
-- The plugin does the most when you notice it the least
-
-You can even turn the Drive all the way down for virtually no saturation and still benefit from the HF phase smear, azimuth delay, and frequency shaping. Sometimes tape character isn't about distortion at all.
-
-### Auto-Gain Compensation
-
-When you turn **Drive** up, **Volume** automatically comes down to maintain constant monitoring level. You hear more saturation without volume changes.
-
-### HF Phase Smear (Dispersive Allpass)
-
-Real tape heads don't reproduce all frequencies with the same timing. Higher frequencies experience slightly more delay than lower frequencies due to the physical characteristics of the head gap and magnetic coating. This creates a subtle softening of transients.
-
-We emulate this with a **4-stage dispersive allpass cascade**:
-
-- Shifts phase without affecting amplitude (flat frequency response)
-- Higher frequencies get progressively more phase shift
-- Studer has more smear than Ampex, less precise machine, but more character
+We emulate this with a 4-stage dispersive allpass cascade:
 
 | Mode | Phase @ 8kHz | Transient Smear |
 |------|--------------|-----------------|
@@ -140,10 +67,36 @@ We emulate this with a **4-stage dispersive allpass cascade**:
 ### Stereo Processing
 
 - **Left channel**: Direct processing
-- **Right channel**: Processing + azimuth delay
-  - Ampex: 8 microseconds
-  - Studer: 12 microseconds
-- Creates authentic tape stereo width
+- **Right channel**: Processing + azimuth delay (Ampex: 8μs, Studer: 12μs)
+
+Creates authentic tape stereo width without phase cancellation.
+
+### Auto-Gain Compensation
+
+When Drive increases, Volume automatically decreases to maintain constant monitoring level.
+
+## Design Philosophy
+
+**This plugin is not meant to be pushed hard.**
+
+Many tape plugins flatten dynamics when driven—the harder you push, the more everything gets squashed. This can sound impressive in isolation but kills transients in a mix.
+
+LOWTHD takes the opposite approach: extremely level-dependent saturation curves tuned for realistic input levels (-6dB to +3dB). The processing stages blend in progressively, preserving dynamics at normal operating levels.
+
+The cumulative effect of many small colorations creates the "tape sound":
+
+- Hysteresis: ~0.01-0.05% THD with frequency-dependent phase
+- Asymmetric saturation: controlled harmonics at <1%
+- De/re-emphasis: ~3-4dB frequency-dependent saturation difference
+- Phase smear: 10-21μs transient softening
+- Azimuth delay: 8-12μs stereo decorrelation
+
+Individually, nearly imperceptible. Together, fuller bass, cohesive mids, smooth highs, and stereo width.
+
+**Recommended usage:**
+- Keep Drive between -6dB and +3dB for mixing
+- Use +6dB to +9dB only for intentional color
+- Stack on multiple tracks at low drive for cumulative effect
 
 ## Controls
 
@@ -170,12 +123,10 @@ We emulate this with a **4-stage dispersive allpass cascade**:
 ┌──────────────────────────────────────────────────────────────────────┐
 │                                                                      │
 │  Input                                                               │
-│    │                                                                 │
 │    ↓                                                                 │
 │  De-emphasis (CCIR 30 IPS) ──── Cut highs before saturation         │
 │    │                                                                 │
 │    ├─────────────────────────────┐                                   │
-│    │                             │                                   │
 │    ↓                             ↓                                   │
 │  J-A Hysteresis            Asymmetric Tanh                          │
 │  (magnetic memory)         (primary THD)                             │
@@ -183,40 +134,27 @@ We emulate this with a **4-stage dispersive allpass cascade**:
 │    │                             ↓                                   │
 │    │                       Level-Dependent Atan                      │
 │    │                       (knee steepening)                         │
-│    │                             │                                   │
 │    ↓                             ↓                                   │
 │  Level-Dependent Blend ←─────────┘                                   │
-│    │                                                                 │
 │    ↓                                                                 │
-│  Re-emphasis (CCIR 30 IPS) ──── Restore highs after blend           │
-│    │                                                                 │
+│  Re-emphasis (CCIR 30 IPS) ──── Restore highs                       │
 │    ↓                                                                 │
-│  HF Dispersive Allpass (4-stage) ──── Tape head phase smear         │
-│    │                                                                 │
+│  HF Dispersive Allpass (4-stage)                                    │
 │    ↓                                                                 │
 │  DC Block (4th-order Butterworth @ 5Hz)                             │
-│    │                                                                 │
 │    ↓                                                                 │
-│  Output                                                              │
-│                                                                      │
-└──────────────────────────────────────────────────────────────────────┘
-
-                    RIGHT CHANNEL ONLY
-┌──────────────────────────────────────────────────────────────────────┐
-│                                                                      │
-│  Output → Azimuth Delay → Final Output                              │
-│           (Ampex: 8μs, Studer: 12μs)                                │
+│  Output (+ Azimuth Delay on right channel)                          │
 │                                                                      │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 ## THD Specifications
 
-The THD targets below are intentionally approximate. We traded some THD accuracy to allow the Jiles-Atherton hysteresis to play a bigger role—the frequency-dependent saturation behavior and magnetic "memory" are more important to the tape sound than hitting exact distortion percentages. When you're combining physics-based hysteresis, asymmetric saturation, frequency shaping, and phase smear, getting close to real measurements matters more than matching a spec sheet.
+THD targets are intentionally approximate—we traded some accuracy to let the Jiles-Atherton hysteresis play a bigger role. The frequency-dependent behavior and magnetic "memory" matter more than hitting exact distortion percentages.
 
 ### Ampex ATR-102 (Master Mode)
-| Level | Measured THD | Target (Median) | E/O Ratio |
-|-------|--------------|-----------------|-----------|
+| Level | Measured THD | Target | E/O Ratio |
+|-------|--------------|--------|-----------|
 | -12 dB | 0.012% | 0.025% | 0.53 |
 | -6 dB | 0.025% | 0.050% | 0.53 |
 | 0 dB | 0.082% | 0.100% | 0.53 |
@@ -225,8 +163,8 @@ The THD targets below are intentionally approximate. We traded some THD accuracy
 | +9 dB | 0.902% | 0.900% | 0.53 |
 
 ### Studer A820 (Tracks Mode)
-| Level | Measured THD | Target (Median) | E/O Ratio |
-|-------|--------------|-----------------|-----------|
+| Level | Measured THD | Target | E/O Ratio |
+|-------|--------------|--------|-----------|
 | -12 dB | 0.046% | 0.035% | 1.09 |
 | -6 dB | 0.097% | 0.070% | 1.09 |
 | 0 dB | 0.242% | 0.275% | 1.09 |
@@ -236,90 +174,70 @@ The THD targets below are intentionally approximate. We traded some THD accuracy
 
 ## Technical Details
 
-### Saturation Parameters
-
-**Ampex ATR-102 (Master):**
-```
-Tanh:  drive=0.095, asymmetry=1.08
-Atan:  drive=5.0, mixMax=0.65, threshold=0.5, width=2.5
-       symmetric (odd harmonics only)
-J-A:   blendMax=1.0, threshold=0.77, width=1.5
-```
-
-**Studer A820 (Tracks):**
-```
-Tanh:  drive=0.14, asymmetry=1.18
-Atan:  drive=5.5, mixMax=0.72, threshold=0.4, width=2.5
-       asymmetric=1.25 (preserves even harmonics)
-J-A:   blendMax=1.0, threshold=0.60, width=1.2
-```
-
 ### Oversampling
 
 **2x minimum-phase IIR** was a deliberate choice:
 
-- **Why 2x?** This plugin is low-THD by design—the saturation is gentle enough that 2x provides sufficient anti-aliasing without the CPU cost of 4x or 8x
-- **Why minimum-phase?** Linear-phase filters preserve transients perfectly, but real tape doesn't. Minimum-phase adds subtle transient softening that brings us closer to the machine emulations
-- **Why not 4x or 8x?** Higher oversampling rates mean more filter passes, which can over-soften transients and make plugins sound excessively flat or lifeless. Some "ultra-clean" plugins suffer from this—technically correct but musically dull
-
-The 2x sweet spot gives us natural transient behavior, adequate aliasing suppression, and CPU efficiency in one stage.
-
-Latency is reported to DAW for automatic compensation.
+- **Why 2x?** The saturation is gentle enough that 2x provides sufficient anti-aliasing without the CPU cost of 4x or 8x
+- **Why minimum-phase?** Linear-phase preserves transients perfectly, but real tape doesn't. Minimum-phase adds subtle transient softening that matches the emulation
+- **Why not 4x or 8x?** More filter passes can over-soften transients, making plugins sound flat or lifeless
 
 ### Near-Zero Latency
 
-An unintended benefit of this design is near-zero latency. The 2x minimum-phase IIR oversampling adds approximately 7 samples of latency—less than 0.2ms at 44.1kHz. This is effectively imperceptible.
+An unintended benefit of this design: the 2x minimum-phase IIR oversampling adds approximately 7 samples—less than 0.2ms at 44.1kHz.
 
-Most physics-based tape simulations require significant oversampling to handle the nonlinear hysteresis equations without aliasing. ChowTape, the other major Jiles-Atherton implementation, recommends "as much oversampling as your CPU will allow" and offers up to 16x with linear-phase filters. This produces excellent results but introduces substantial latency unsuitable for real-time monitoring.
+Most physics-based tape simulations require significant oversampling to handle nonlinear hysteresis without aliasing. ChowTape, the other major Jiles-Atherton implementation, recommends "as much oversampling as your CPU will allow" and offers up to 16x. This produces excellent results but introduces latency unsuitable for real-time monitoring.
 
-LOWTHD's approach differs: by designing for subtle saturation from the start, the nonlinear content stays low enough that 2x oversampling provides adequate anti-aliasing. The hysteresis is still physically accurate—it simply operates in a regime where extreme oversampling isn't necessary.
+LOWTHD's subtle saturation keeps nonlinear content low enough that 2x suffices. The hysteresis is still physically accurate—it simply operates in a regime where extreme oversampling isn't necessary.
 
-The result is a plugin that can be used for tracking and live monitoring, not just mixing and mastering. This is unusual for a physics-based tape simulation.
+The result: a physics-based tape simulation suitable for tracking and live monitoring, not just mixing.
 
 ### Low CPU Usage
 
-The same design choices that enable low latency also minimize CPU consumption. The plugin runs a single 2x oversampling stage, one Jiles-Atherton hysteresis pass, and straightforward filter stages. There are no iterative solvers running at 16x the sample rate, no neural network inference, and no convolution.
+The same design choices minimize CPU consumption. Single 2x oversampling stage, one Jiles-Atherton pass, straightforward filters. No iterative solvers at 16x sample rate, no neural network inference, no convolution.
 
-On a typical modern system, LOWTHD uses a fraction of the CPU required by more complex tape emulations. Multiple instances can run simultaneously without significant impact on system resources.
+Multiple instances run simultaneously without significant system impact.
+
+### Jiles-Atherton Parameters
+
+The J-A model simulates magnetic domain behavior. Low frequencies have slower zero-crossings, giving domains more time to "stick"—this is why tape makes bass feel thicker without EQ.
+
+**Ampex (Master):**
+- Domain density (a): 200 — Nearly linear
+- Coercivity (k): 0.001 — Minimal stickiness
+- Reversibility (c): 0.9999 — Domains flip easily
+
+**Studer (Tracks):**
+- Domain density (a): 120 — Softer knee
+- Coercivity (k): 0.003 — More stickiness
+- Reversibility (c): 0.995 — Slight domain memory ("bass glue")
+
+### Saturation Parameters
+
+**Ampex ATR-102:**
+```
+Tanh:  drive=0.095, asymmetry=1.08
+Atan:  drive=5.0, mixMax=0.65, threshold=0.5, width=2.5, symmetric
+J-A:   blendMax=1.0, threshold=0.77, width=1.5
+```
+
+**Studer A820:**
+```
+Tanh:  drive=0.14, asymmetry=1.18
+Atan:  drive=5.5, mixMax=0.72, threshold=0.4, width=2.5, asymmetric=1.25
+J-A:   blendMax=1.0, threshold=0.60, width=1.2
+```
 
 ### Unity Gain at Defaults
 
 - Default Drive: -6dB (0.5x)
 - Final makeup: +6dB (2.0x)
-- Net result: Unity gain with clean headroom before saturation
+- Net result: Unity gain with headroom before saturation
 
-### Jiles-Atherton Hysteresis: Bass "Stickiness"
+## Installation
 
-The Jiles-Atherton model simulates how magnetic domains in tape oxide behave. When the audio signal changes direction, the magnetic particles don't respond instantly—they exhibit *hysteresis*, a lag that depends on the signal's history.
+Pre-built macOS plugins are available in `Builds/macOS/`:
 
-**Why this matters for bass:**
-- Low frequencies have slower zero-crossings, giving domains more time to "stick"
-- The coercivity (k) parameter controls how much force is needed to flip domains
-- Higher coercivity = more stickiness = bass notes feel "thicker" and more sustained
-- This is why tape makes kicks and bass guitar sound fuller without EQ
-
-**How the blend works:**
-- At low levels: Hysteresis path is silent (clean, transparent response)
-- At high levels: Hysteresis fades in via envelope follower
-- Result: Clean quiet passages, magnetic warmth on loud transients
-
-**Ampex (Master):**
-- Domain density (a): 200 - Nearly linear response
-- Coercivity (k): 0.001 - Minimal stickiness (clean mastering character)
-- Reversibility (c): 0.9999 - Domains flip easily
-
-**Studer (Tracks):**
-- Domain density (a): 120 - Softer saturation knee
-- Coercivity (k): 0.003 - More stickiness (punchy tracking character)
-- Reversibility (c): 0.995 - Slight domain memory = bass "glue"
-
-## Pre-Built Plugins
-
-Pre-built macOS plugins are available in the `Builds/macOS/` directory:
-- `Low THD Tape Sim.vst3`
-- `Low THD Tape Sim.component` (AU)
-
-Copy to your plugin folders:
 ```bash
 cp -R "Builds/macOS/Low THD Tape Sim.vst3" ~/Library/Audio/Plug-Ins/VST3/
 cp -R "Builds/macOS/Low THD Tape Sim.component" ~/Library/Audio/Plug-Ins/Components/
@@ -339,44 +257,25 @@ make -j8
 - CMake 3.22+
 - C++17 compiler
 - macOS 10.13+
-- JUCE 8.0.4 (fetched automatically via CMake)
+- JUCE 8.0.4 (fetched automatically)
 
 ## Project Structure
 
 ```
 LOWTHD/
-├── README.md
 ├── Source/DSP/
-│   ├── HybridTapeProcessor.cpp    # Main saturation engine
-│   ├── HybridTapeProcessor.h
-│   ├── JilesAthertonCore.h        # Physics-based hysteresis
-│   ├── PreEmphasis.cpp            # CCIR 30 IPS EQ (Re-emphasis/De-emphasis)
-│   └── PreEmphasis.h
-├── Plugin/
-│   ├── CMakeLists.txt
-│   └── Source/
-│       ├── PluginProcessor.cpp    # JUCE wrapper, auto-gain, oversampling
-│       ├── PluginProcessor.h
-│       ├── PluginEditor.cpp       # UI
-│       └── PluginEditor.h
+│   ├── HybridTapeProcessor.cpp/h   # Main saturation engine
+│   ├── JilesAthertonCore.h         # Physics-based hysteresis
+│   └── PreEmphasis.cpp/h           # CCIR 30 IPS EQ
+├── Plugin/Source/
+│   ├── PluginProcessor.cpp/h       # JUCE wrapper, oversampling
+│   └── PluginEditor.cpp/h          # UI
 └── Tests/
-    ├── run_all_tests.sh           # Master test runner
-    ├── Test_THDAccuracy.cpp       # THD vs level validation
-    ├── Test_HarmonicBalance.cpp   # E/O ratio validation
-    ├── Test_FrequencyResponse.cpp # Frequency response tests
-    ├── Test_Transparency.cpp      # Low-level purity tests
-    ├── Test_PhaseCoherence.cpp    # Parallel path validation
-    ├── Test_Stereo.cpp            # Stereo and azimuth tests
-    ├── Test_Stability.cpp         # Edge case validation
-    └── Test_DispersiveAllpass.cpp # HF phase smear validation
+    └── *.cpp                       # Validation suite
 ```
 
 ## Credits
 
 Developed by Ben Sandoval
 
-DSP algorithms based on:
-- Jiles-Atherton magnetic hysteresis modeling for tape memory effects
-- tanh/atan saturation with DC-bias for even/odd harmonic control
-- CCIR 30 IPS de-emphasis/re-emphasis for frequency-dependent saturation
-- Dispersive allpass cascade for HF phase smear
+DSP based on Jiles-Atherton magnetic hysteresis, asymmetric tanh/atan saturation, CCIR 30 IPS equalization, and dispersive allpass filtering.
