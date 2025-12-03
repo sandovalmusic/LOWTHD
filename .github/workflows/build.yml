@@ -5,7 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
 
 jobs:
   build:
@@ -17,7 +17,7 @@ jobs:
             name: Windows
           - os: macos-latest
             name: macOS
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             name: Linux
 
     runs-on: ${{ matrix.os }}
@@ -43,7 +43,8 @@ jobs:
             libxrandr-dev \
             libxrender-dev \
             libwebkit2gtk-4.0-dev \
-            libglu1-mesa-dev
+            libglu1-mesa-dev \
+            mesa-common-dev
 
       - name: Configure CMake
         run: cmake -S Plugin -B build -DCMAKE_BUILD_TYPE=Release
@@ -56,25 +57,25 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: LOWTHD-Windows-VST3
-          path: build/**/*.vst3
+          path: build/LowTHDTape_artefacts/Release/VST3/*.vst3
 
       - name: Upload VST3 (macOS)
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: LOWTHD-macOS-VST3
-          path: build/**/*.vst3
+          path: build/LowTHDTape_artefacts/Release/VST3/*.vst3
 
       - name: Upload AU (macOS)
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: LOWTHD-macOS-AU
-          path: build/**/*.component
+          path: build/LowTHDTape_artefacts/Release/AU/*.component
 
       - name: Upload VST3 (Linux)
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
           name: LOWTHD-Linux-VST3
-          path: build/**/*.vst3
+          path: build/LowTHDTape_artefacts/Release/VST3/*.vst3
