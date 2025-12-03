@@ -38,7 +38,7 @@ Real tape saturates bass more than treble. We achieve this with CCIR 30 IPS equa
 - Saturation processes bass-heavy signal
 - **Re-emphasis** after saturation (restore highs)
 
-Result: Bass gets warm compression, treble stays clean and open.
+Result: Bass gets warm saturation, treble stays clean and open.
 
 ### Auto-Gain Compensation
 
