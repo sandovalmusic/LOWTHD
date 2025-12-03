@@ -1,0 +1,15 @@
+build/
+*.o
+*.d
+*.a
+*.dylib
+*.so
+*.dll
+.DS_Store
+.vscode/
+.idea/
+cmake-build-*/
+Plugin/build/
+*.txt
+!CMakeLists.txt
+THDValidator
