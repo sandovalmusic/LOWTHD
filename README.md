@@ -1,6 +1,19 @@
 # Low THD Tape Simulator
 
-Tape simulation plugin emulating the **Ampex ATR-102** (mastering) and **Studer A820** (tracking) tape machines with physics-based modeling.
+[![Build](https://github.com/sandovalmusic/LOWTHD/actions/workflows/build.yml/badge.svg)](https://github.com/sandovalmusic/LOWTHD/actions/workflows/build.yml)
+
+Physics-based tape saturation plugin emulating the **Ampex ATR-102** and **Studer A820**.
+
+## Download
+
+**[Download Latest Builds](https://github.com/sandovalmusic/LOWTHD/actions/workflows/build.yml)** — Click the latest successful run, scroll to "Artifacts", and download for your platform:
+
+| Platform | Format | File |
+|----------|--------|------|
+| **Windows** | VST3 | `LOWTHD-Windows-VST3.zip` |
+| **macOS** | VST3 | `LOWTHD-macOS-VST3.zip` |
+| **macOS** | AU | `LOWTHD-macOS-AU.zip` |
+| **Linux** | VST3 | `LOWTHD-Linux-VST3.zip` |
 
 ## Why Physics-Based Modeling
 
