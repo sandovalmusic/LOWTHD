@@ -6,10 +6,14 @@ Professional tape saturation plugin emulating the **Ampex ATR-102** (mastering) 
 
 ### Two Machine Modes
 
-| Mode | Machine | Character | THD @ 0dB | E/O Ratio | Azimuth |
-|------|---------|-----------|-----------|-----------|---------|
-| **Master** | Ampex ATR-102 | Ultra-clean, transparent | ~0.08% | 0.53 (odd-dominant) | 8μs |
-| **Tracks** | Studer A820 | Warm, punchy, musical | ~0.24% | 1.09 (even-dominant) | 12μs |
+| Mode | Machine | Use On | Character | THD @ 0dB | E/O Ratio |
+|------|---------|--------|-----------|-----------|-----------|
+| **Master** | Ampex ATR-102 | Master bus | Ultra-clean, transparent | ~0.08% | 0.53 (odd) |
+| **Tracks** | Studer A820 | Individual tracks | Warm, punchy, musical | ~0.24% | 1.09 (even) |
+
+**Tracks mode** emulates a Studer A820 24-track machine—the workhorse of multitrack recording. Use it on individual tracks (drums, bass, vocals, guitars) for warmth and punch.
+
+**Master mode** emulates an Ampex ATR-102 stereo mastering deck—the gold standard for mixdown. Use it on your master bus for subtle glue and cohesion without coloring the mix.
 
 ### Hybrid Saturation Model
 
@@ -32,13 +36,40 @@ Combines three complementary saturation stages:
 
 ### Frequency-Dependent Saturation
 
-Real tape saturates bass more than treble. We achieve this with CCIR 30 IPS equalization:
+Real tape machines use high-frequency bias—an ultrasonic signal (~100kHz) added during recording that linearizes the magnetic response for treble frequencies. This bias current "protects" high frequencies from the nonlinear saturation that affects bass and midrange.
+
+The result: bass saturates and compresses while highs remain clean and extended. This is why tape sounds "warm" rather than "dull"—the saturation is frequency-selective by design.
+
+We emulate this behavior with CCIR 30 IPS equalization curves:
 
 - **De-emphasis** before saturation (cut highs ~7-9dB)
-- Saturation processes bass-heavy signal
-- **Re-emphasis** after saturation (restore highs)
+- Saturation processes the bass-heavy signal
+- **Re-emphasis** after saturation (restore highs to original level)
 
-Result: Bass gets warm saturation, treble stays clean and open.
+Combined with the Jiles-Atherton hysteresis (which also affects bass more due to slower zero-crossings), this creates the authentic tape frequency response: warm, saturated low-end with open, airy highs.
+
+### Philosophy: Subtle by Design
+
+**This plugin is not meant to be pushed hard.**
+
+Many tape plugins use relatively linear saturation curves that flatten dynamics when driven—the harder you push, the more everything gets squashed to the same level. This can sound impressive in isolation but kills transients and punch in a mix.
+
+This plugin takes the opposite approach: **extremely level-dependent saturation curves** carefully tuned for realistic input levels. At -6dB to +3dB, you get the subtle nonlinearities that make tape sound like tape. The saturation stages (tanh, atan, J-A) only blend in progressively as level increases, preserving dynamics at normal operating levels.
+
+Slamming the gain defeats the entire design. If you want aggressive tape "smash," other plugins will do that better. This one is built for the cumulative effect of many small colorations:
+
+- **Hysteresis** adds ~0.01-0.05% THD with frequency-dependent phase shifts
+- **Asymmetric saturation** generates controlled even/odd harmonics at <1%
+- **De-emphasis/re-emphasis** creates ~3-4dB of frequency-dependent saturation difference
+- **Azimuth delay** adds 8-12μs of stereo decorrelation
+
+Individually, these are nearly imperceptible. Together, they create the "tape sound"—fuller bass, cohesive mids, open highs, and stereo width that makes sources sit better in a mix.
+
+**Recommended usage:**
+- Keep Drive between -6dB and +3dB for mixing
+- Use +6dB to +9dB only for intentional color
+- Stack on multiple tracks at low drive for cumulative effect
+- The plugin does the most when you notice it the least
 
 ### Auto-Gain Compensation
 
