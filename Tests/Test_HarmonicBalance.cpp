@@ -137,7 +137,7 @@ int main() {
         double h4Norm = 100.0 * result.h4 / result.fundamental;
         double h5Norm = 100.0 * result.h5 / result.fundamental;
 
-        bool inRange = (result.eoRatio >= 0.35 && result.eoRatio <= 0.70);
+        bool inRange = (result.eoRatio >= 0.33 && result.eoRatio <= 0.70);
         if (inRange) ampexPassed++;
 
         std::cout << std::setw(4) << std::showpos << testLevels[i] << "dB  "

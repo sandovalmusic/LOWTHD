@@ -26,6 +26,7 @@ TESTS=(
     "Test_PhaseCoherence"
     "Test_Stereo"
     "Test_Stability"
+    "Test_DispersiveAllpass"
 )
 
 PASSED=0

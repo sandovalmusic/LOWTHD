@@ -75,6 +75,21 @@ Individually, these are nearly imperceptible. Together, they create the "tape so
 
 When you turn **Drive** up, **Volume** automatically comes down to maintain constant monitoring level. You hear more saturation without volume changes.
 
+### HF Phase Smear (Dispersive Allpass)
+
+Real tape heads don't reproduce all frequencies with the same timing. Higher frequencies experience slightly more delay than lower frequencies due to the physical characteristics of the head gap and magnetic coating. This creates a subtle softening of transients—often described as tape's "air" or "silk."
+
+We emulate this with a **4-stage dispersive allpass cascade**:
+
+- Shifts phase without affecting amplitude (flat frequency response)
+- Higher frequencies get progressively more phase shift
+- Studer has more smear than Ampex for a warmer character
+
+| Mode | Phase @ 8kHz | Transient Smear |
+|------|--------------|-----------------|
+| Ampex | -124° | 10μs |
+| Studer | -116° | 21μs |
+
 ### Stereo Processing
 
 - **Left channel**: Direct processing
@@ -127,6 +142,9 @@ When you turn **Drive** up, **Volume** automatically comes down to maintain cons
 │    │                                                                 │
 │    ↓                                                                 │
 │  Re-emphasis (CCIR 30 IPS) ──── Restore highs after blend           │
+│    │                                                                 │
+│    ↓                                                                 │
+│  HF Dispersive Allpass (4-stage) ──── Tape head phase smear         │
 │    │                                                                 │
 │    ↓                                                                 │
 │  DC Block (4th-order Butterworth @ 5Hz)                             │

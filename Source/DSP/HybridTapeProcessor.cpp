@@ -20,6 +20,13 @@ void HybridTapeProcessor::setSampleRate(double sampleRate)
     deEmphasis.setSampleRate(sampleRate);
     jaCore.setSampleRate(sampleRate);
 
+    // Configure dispersive allpass cascade for HF phase smear
+    // Frequencies spread across HF range: 4k, 5.6k, 8k, 11k Hz
+    for (int i = 0; i < NUM_DISPERSIVE_STAGES; ++i) {
+        double freq = dispersiveCornerFreq * std::pow(2.0, i * 0.5);
+        dispersiveAllpass[i].setFrequency(freq, sampleRate);
+    }
+
     // Design 4th-order Butterworth high-pass at 5 Hz for DC blocking
     double fc = 5.0;
     double w0 = 2.0 * M_PI * fc / sampleRate;
@@ -54,6 +61,11 @@ void HybridTapeProcessor::reset()
     reEmphasis.reset();
     deEmphasis.reset();
     jaCore.reset();
+
+    // Reset dispersive allpass filters
+    for (int i = 0; i < NUM_DISPERSIVE_STAGES; ++i) {
+        dispersiveAllpass[i].reset();
+    }
 
     // Clear azimuth delay buffer
     for (int i = 0; i < DELAY_BUFFER_SIZE; ++i) {
@@ -234,6 +246,18 @@ void HybridTapeProcessor::updateCachedValues()
     // Tracks/Studer: 12 microseconds
     double delayMicroseconds = isAmpexMode ? 8.0 : 12.0;
     cachedDelaySamples = delayMicroseconds * 1e-6 * fs;
+
+    // Configure dispersive allpass corner frequency
+    // Lower corner = more phase smear in the audible range
+    // Ampex: 4.5kHz (subtle, clean HF)
+    // Studer: 3.5kHz (more pronounced "tape air")
+    dispersiveCornerFreq = isAmpexMode ? 4500.0 : 3500.0;
+
+    // Reconfigure allpass filters with new corner frequency
+    for (int i = 0; i < NUM_DISPERSIVE_STAGES; ++i) {
+        double freq = dispersiveCornerFreq * std::pow(2.0, i * 0.5);
+        dispersiveAllpass[i].setFrequency(freq, fs);
+    }
 }
 
 double HybridTapeProcessor::processSample(double input)
@@ -304,7 +328,14 @@ double HybridTapeProcessor::processSample(double input)
     // Step 8: Re-emphasis (restore highs after saturation)
     double output = reEmphasis.processSample(blended);
 
-    // Step 9: DC blocking filter (4th-order Butterworth @ 5Hz)
+    // Step 9: HF dispersive allpass (tape head phase smear)
+    // Creates frequency-dependent group delay - higher frequencies get more delay
+    // This emulates the "soft focus" effect on tape transients
+    for (int i = 0; i < NUM_DISPERSIVE_STAGES; ++i) {
+        output = dispersiveAllpass[i].process(output);
+    }
+
+    // Step 10: DC blocking filter (4th-order Butterworth @ 5Hz)
     output = dcBlocker1.process(output);
     output = dcBlocker2.process(output);
 

@@ -34,13 +34,15 @@ namespace TapeHysteresis
  *   4. Asymmetric tanh saturation path (THD curve + E/O ratio)
  *   5. Level-dependent parallel blend of J-A and tanh paths
  *   6. Re-emphasis (CCIR 30 IPS) - restore highs after saturation
- *   7. DC blocking (4th-order @ 5Hz)
+ *   7. HF dispersive allpass (tape head phase smear)
+ *   8. DC blocking (4th-order @ 5Hz)
  *
  * The hybrid approach provides:
  *   - Correct THD vs level curve (from tanh)
  *   - Correct even/odd harmonic balance (from asymmetry)
  *   - History-dependent "tape memory" (from J-A)
  *   - Frequency-dependent saturation (from pre/de-emphasis)
+ *   - HF phase smear / "soft focus" (from dispersive allpass)
  */
 
 class HybridTapeProcessor
@@ -137,6 +139,34 @@ private:
     // Applied before/after the saturation blend (both paths see same EQ)
     ReEmphasis reEmphasis;
     DeEmphasis deEmphasis;
+
+    // HF dispersive allpass - creates frequency-dependent phase shift
+    // Emulates tape head phase smear ("soft focus" effect on transients)
+    // Higher frequencies get more phase shift, creating the tape "air"
+    struct AllpassFilter {
+        double coefficient = 0.0;
+        double z1 = 0.0;
+
+        void setFrequency(double freq, double sampleRate) {
+            // First-order allpass: H(z) = (a + z^-1) / (1 + a*z^-1)
+            // Phase shift is 180° at DC, 0° at Nyquist, 90° at the tuning frequency
+            double w0 = 2.0 * M_PI * freq / sampleRate;
+            double tanHalf = std::tan(w0 / 2.0);
+            coefficient = (1.0 - tanHalf) / (1.0 + tanHalf);
+        }
+
+        void reset() { z1 = 0.0; }
+
+        double process(double input) {
+            double output = coefficient * input + z1;
+            z1 = input - coefficient * output;
+            return output;
+        }
+    };
+
+    static constexpr int NUM_DISPERSIVE_STAGES = 4;
+    AllpassFilter dispersiveAllpass[NUM_DISPERSIVE_STAGES];
+    double dispersiveCornerFreq = 4000.0;  // Base corner frequency
 
     // Jiles-Atherton hysteresis core - adds magnetic tape character
     JilesAthertonCore jaCore;
