@@ -46,7 +46,7 @@ We emulate this behavior with CCIR 30 IPS equalization curves:
 - Saturation processes the bass-heavy signal
 - **Re-emphasis** after saturation (restore highs to original level)
 
-Combined with the Jiles-Atherton hysteresis (which also affects bass more due to slower zero-crossings), this creates the authentic tape frequency response: warm, saturated low-end with open, airy highs.
+Combined with the Jiles-Atherton hysteresis (which also affects bass more due to slower zero-crossings) and HF phase smear from the tape head, this creates the authentic tape frequency response: warm, saturated low-end with open, silky highs that never sound harsh.
 
 ### Philosophy: Subtle by Design
 
@@ -61,9 +61,10 @@ Slamming the gain defeats the entire design. If you want aggressive tape "smash,
 - **Hysteresis** adds ~0.01-0.05% THD with frequency-dependent phase shifts
 - **Asymmetric saturation** generates controlled even/odd harmonics at <1%
 - **De-emphasis/re-emphasis** creates ~3-4dB of frequency-dependent saturation difference
+- **HF phase smear** softens transients by 10-21μs without dulling the highs
 - **Azimuth delay** adds 8-12μs of stereo decorrelation
 
-Individually, these are nearly imperceptible. Together, they create the "tape sound"—fuller bass, cohesive mids, open highs, and stereo width that makes sources sit better in a mix.
+Individually, these are nearly imperceptible. Together, they create the "tape sound"—fuller bass, cohesive mids, silky highs, and stereo width that makes sources sit better in a mix.
 
 **Recommended usage:**
 - Keep Drive between -6dB and +3dB for mixing
