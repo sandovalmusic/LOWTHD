@@ -193,7 +193,9 @@ J-A:   blendMax=1.0, threshold=0.60, width=1.2
 
 - **Why 2x?** This plugin is low-THD by design—the saturation is gentle enough that 2x provides sufficient anti-aliasing without the CPU cost of 4x or 8x
 - **Why minimum-phase?** Linear-phase filters preserve transients perfectly, but real tape doesn't. Minimum-phase adds subtle transient softening that brings us closer to the machine emulations
-- **The tradeoff:** We get natural-sounding transient behavior *and* adequate aliasing suppression in one stage
+- **Why not 4x or 8x?** Higher oversampling rates mean more filter passes, which can over-soften transients and make plugins sound excessively flat or lifeless. Some "ultra-clean" plugins suffer from this—technically correct but musically dull
+
+The 2x sweet spot gives us natural transient behavior, adequate aliasing suppression, and CPU efficiency in one stage.
 
 Latency is reported to DAW for automatic compensation.
 
