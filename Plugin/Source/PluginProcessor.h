@@ -87,10 +87,6 @@ private:
     std::atomic<float>* inputTrimParam = nullptr;
     std::atomic<float>* outputTrimParam = nullptr;
 
-    // Parameter smoothers for audio-rate interpolation
-    juce::SmoothedValue<float> inputTrimSmooth;
-    juce::SmoothedValue<float> outputTrimSmooth;
-
     // Level metering
     std::atomic<float> currentLevelDB { -96.0f };
 

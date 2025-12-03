@@ -23,13 +23,6 @@ LowTHDTapeSimulatorAudioProcessor::LowTHDTapeSimulatorAudioProcessor()
     inputTrimParam = parameters.getRawParameterValue (PARAM_INPUT_TRIM);
     outputTrimParam = parameters.getRawParameterValue (PARAM_OUTPUT_TRIM);
 
-    // Initialize smoothers with default values
-    inputTrimSmooth.reset (44100.0, 0.05); // 50ms ramp
-    inputTrimSmooth.setCurrentAndTargetValue (0.5f); // Match default parameter value (-6dB)
-
-    outputTrimSmooth.reset (44100.0, 0.05); // 50ms ramp
-    outputTrimSmooth.setCurrentAndTargetValue (1.0f); // Match default parameter value (0dB)
-
     // Register parameter listener for auto-gain linking
     parameters.addParameterListener (PARAM_INPUT_TRIM, this);
     lastInputTrimValue = 0.5f;  // Match default
@@ -174,18 +167,9 @@ void LowTHDTapeSimulatorAudioProcessor::prepareToPlay (double sampleRate, int sa
     tapeProcessorRight.reset();
 
     // Set default Ampex ATR-102 parameters (Master mode)
-    // bias < 0.74 = Ampex, bias >= 0.74 = Studer
     const double defaultBias = 0.65;
-
     tapeProcessorLeft.setParameters (defaultBias, 1.0);
     tapeProcessorRight.setParameters (defaultBias, 1.0);
-
-    // Initialize smoothers
-    inputTrimSmooth.reset (sampleRate, 0.05);
-    inputTrimSmooth.setCurrentAndTargetValue (*inputTrimParam);
-
-    outputTrimSmooth.reset (sampleRate, 0.05);
-    outputTrimSmooth.setCurrentAndTargetValue (*outputTrimParam);
 }
 
 void LowTHDTapeSimulatorAudioProcessor::releaseResources()
