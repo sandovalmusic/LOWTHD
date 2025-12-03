@@ -72,6 +72,8 @@ Individually, these are nearly imperceptible. Together, they create the "tape so
 - Stack on multiple tracks at low drive for cumulative effect
 - The plugin does the most when you notice it the least
 
+You can even turn the Drive all the way down for virtually no saturation and still benefit from the HF phase smear, azimuth delay, and frequency shaping. Sometimes tape character isn't about distortion at all.
+
 ### Auto-Gain Compensation
 
 When you turn **Drive** up, **Volume** automatically comes down to maintain constant monitoring level. You hear more saturation without volume changes.
@@ -165,6 +167,8 @@ We emulate this with a **4-stage dispersive allpass cascade**:
 ```
 
 ## THD Specifications
+
+The THD targets below are intentionally approximate. We traded some THD accuracy to allow the Jiles-Atherton hysteresis to play a bigger role—the frequency-dependent saturation behavior and magnetic "memory" are more important to the tape sound than hitting exact distortion percentages. When you're combining physics-based hysteresis, asymmetric saturation, frequency shaping, and phase smear, getting close to real measurements matters more than matching a spec sheet.
 
 ### Ampex ATR-102 (Master Mode)
 | Level | Measured THD | Target (Median) | E/O Ratio |
