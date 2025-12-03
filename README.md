@@ -302,7 +302,8 @@ LOWTHD/
     ├── Test_Transparency.cpp      # Low-level purity tests
     ├── Test_PhaseCoherence.cpp    # Parallel path validation
     ├── Test_Stereo.cpp            # Stereo and azimuth tests
-    └── Test_Stability.cpp         # Edge case validation
+    ├── Test_Stability.cpp         # Edge case validation
+    └── Test_DispersiveAllpass.cpp # HF phase smear validation
 ```
 
 ## Credits
@@ -313,3 +314,4 @@ DSP algorithms based on:
 - Jiles-Atherton magnetic hysteresis modeling for tape memory effects
 - Asymmetric tanh/atan saturation with DC-bias for even/odd harmonic control
 - CCIR 30 IPS de-emphasis/re-emphasis for frequency-dependent saturation
+- Dispersive allpass cascade for HF phase smear
