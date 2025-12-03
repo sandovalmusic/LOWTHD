@@ -28,6 +28,8 @@ void MachineEQ::reset()
     ampexBell3.reset();
     ampexBell4.reset();
     ampexBell5.reset();
+    ampexBell6.reset();
+    ampexLP.reset();
 
     // Reset Studer filters
     studerHP1.reset();
@@ -51,6 +53,8 @@ void MachineEQ::updateCoefficients()
     ampexBell3.setBell(75.0, 0.8, 2.0, fs);
     ampexBell4.setBell(230.0, 0.6, -0.8, fs);
     ampexBell5.setBell(6000.0, 0.4, -0.6, fs);
+    ampexBell6.setBell(30000.0, 0.6, 2.3, fs);  // HF lift
+    ampexLP.setLowPass(30000.0, fs);            // HF rolloff
 
     // === Studer A820 "Tracks" EQ ===
     studerHP1.setHighPass(30.0, 0.7071, fs);    // 30 Hz, 12 dB/oct
@@ -77,6 +81,8 @@ double MachineEQ::processSample(double input)
         x = ampexBell3.process(x);
         x = ampexBell4.process(x);
         x = ampexBell5.process(x);
+        x = ampexBell6.process(x);
+        x = ampexLP.process(x);
     }
     else
     {

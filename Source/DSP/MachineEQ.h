@@ -86,14 +86,24 @@ struct FirstOrderFilter
         b1 = -1.0 / a0;
         a1 = (K - 1.0) / a0;
     }
+
+    // 1st order low-pass (6 dB/oct)
+    void setLowPass(double fc, double sampleRate)
+    {
+        double K = std::tan(M_PI * fc / sampleRate);
+        double a0 = 1.0 + K;
+        b0 = K / a0;
+        b1 = K / a0;
+        a1 = (K - 1.0) / a0;
+    }
 };
 
 /**
  * Machine-specific EQ curves from Jack Endino's measurements
  * Applied AFTER saturation to capture the total frequency response.
  *
- * Note: 30kHz bands are omitted as they're above Nyquist at 48kHz
- * and the gains are too small to matter even when oversampled.
+ * Note: MachineEQ runs at the oversampled rate (2x), so at 48kHz base
+ * we have 96kHz sample rate and 48kHz Nyquist - 30kHz bands work correctly.
  */
 class MachineEQ
 {
@@ -118,6 +128,8 @@ private:
     EQBiquad ampexBell3;        // 75 Hz, Q 0.8, +2.0 dB
     EQBiquad ampexBell4;        // 230 Hz, Q 0.6, -0.8 dB
     EQBiquad ampexBell5;        // 6000 Hz, Q 0.4, -0.6 dB
+    EQBiquad ampexBell6;        // 30000 Hz, Q 0.6, +2.3 dB
+    FirstOrderFilter ampexLP;   // 30000 Hz, 6 dB/oct
 
     // Studer A820 "Tracks" EQ
     EQBiquad studerHP1;         // 30 Hz, 12 dB/oct
