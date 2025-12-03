@@ -1,6 +1,6 @@
 # Low THD Tape Simulator
 
-Professional tape saturation plugin emulating the **Ampex ATR-102** (mastering) and **Studer A820** (tracking) tape machines with physics-based modeling.
+Tape simulation plugin emulating the **Ampex ATR-102** (mastering) and **Studer A820** (tracking) tape machines with physics-based modeling.
 
 ## Why Physics-Based Modeling
 
