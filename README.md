@@ -8,12 +8,12 @@ Professional tape saturation plugin emulating the **Ampex ATR-102** (mastering) 
 
 | Mode | Machine | Use On | Character | THD @ 0dB | E/O Ratio |
 |------|---------|--------|-----------|-----------|-----------|
-| **Master** | Ampex ATR-102 | Master bus | Ultra-clean, transparent | ~0.08% | 0.53 (odd) |
-| **Tracks** | Studer A820 | Individual tracks | Warm, punchy, musical | ~0.24% | 1.09 (even) |
+| **Master** | Ampex ATR-102 | Master bus | Cleaner, faster | ~0.08% | 0.53 (odd) |
+| **Tracks** | Studer A820 | Individual tracks | Softer, warmer | ~0.24% | 1.09 (even) |
 
-**Tracks mode** emulates a Studer A820 24-track machine—the workhorse of multitrack recording. Use it on individual tracks (drums, bass, vocals, guitars) for warmth and punch.
+**Tracks mode** emulates a Studer A820 24-track machine. Use it on individual tracks (drums, bass, vocals, guitars). More tape memory, some saturation at low levels.
 
-**Master mode** emulates an Ampex ATR-102 stereo mastering deck—the gold standard for mixdown. Use it on your master bus for subtle glue and cohesion without coloring the mix.
+**Master mode** emulates an Ampex ATR-102 stereo mastering deck. Use it on your master bus. Less tape memory, almost completely clean at low levels.
 
 ### Hybrid Saturation Model
 
@@ -80,13 +80,13 @@ When you turn **Drive** up, **Volume** automatically comes down to maintain cons
 
 ### HF Phase Smear (Dispersive Allpass)
 
-Real tape heads don't reproduce all frequencies with the same timing. Higher frequencies experience slightly more delay than lower frequencies due to the physical characteristics of the head gap and magnetic coating. This creates a subtle softening of transients—often described as tape's "air" or "silk."
+Real tape heads don't reproduce all frequencies with the same timing. Higher frequencies experience slightly more delay than lower frequencies due to the physical characteristics of the head gap and magnetic coating. This creates a subtle softening of transients.
 
 We emulate this with a **4-stage dispersive allpass cascade**:
 
 - Shifts phase without affecting amplitude (flat frequency response)
 - Higher frequencies get progressively more phase shift
-- Studer has more smear than Ampex for a warmer character
+- Studer has more smear than Ampex, less precise machine, but more character
 
 | Mode | Phase @ 8kHz | Transient Smear |
 |------|--------------|-----------------|
@@ -317,6 +317,6 @@ Developed by Ben Sandoval
 
 DSP algorithms based on:
 - Jiles-Atherton magnetic hysteresis modeling for tape memory effects
-- Asymmetric tanh/atan saturation with DC-bias for even/odd harmonic control
+- tanh/atan saturation with DC-bias for even/odd harmonic control
 - CCIR 30 IPS de-emphasis/re-emphasis for frequency-dependent saturation
 - Dispersive allpass cascade for HF phase smear
