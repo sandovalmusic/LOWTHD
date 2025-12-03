@@ -2,6 +2,16 @@
 
 Professional tape saturation plugin emulating the **Ampex ATR-102** (mastering) and **Studer A820** (tracking) tape machines with physics-based modeling.
 
+## Why Physics-Based Modeling
+
+Other plugin developers have sought to model these machines by meticulously recreating their electronic components—input transformers, repro amplifiers, bias oscillators, output stages. This approach assumes the "tape sound" emerges from the cumulative coloration of the signal path.
+
+However, the electronics in professional tape machines measure extremely linearly. The Ampex ATR-102 and Studer A820 were precision instruments designed for mastering and multitrack recording. Their amplifiers, transformers, and signal paths were engineered to be as transparent as possible. Many studios even modified their machines to bypass the input/output transformers entirely, preferring the cleaner signal path.
+
+The sound of these machines is not in their electronics. It is in the physics of magnetic recording: the hysteresis behavior of ferromagnetic particles, the frequency-dependent effects of AC bias, the phase smear of the playback head, and the nonlinear compression as signal levels approach tape saturation.
+
+LOWTHD models what actually matters—the tape and heads—rather than the amplifiers that were designed to stay out of the way.
+
 ## Features
 
 ### Two Machine Modes
