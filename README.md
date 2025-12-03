@@ -109,25 +109,24 @@ When you turn **Drive** up, **Volume** automatically comes down to maintain cons
 │                                                                      │
 │  Input                                                               │
 │    │                                                                 │
+│    ↓                                                                 │
+│  De-emphasis (CCIR 30 IPS) ──── Cut highs before saturation         │
+│    │                                                                 │
 │    ├─────────────────────────────┐                                   │
 │    │                             │                                   │
 │    ↓                             ↓                                   │
-│  J-A Hysteresis Path      De-emphasis (CCIR 30 IPS)                 │
-│  (magnetic memory)               │                                   │
-│    │                             ↓                                   │
-│    │                      Asymmetric Tanh                            │
-│    │                      (primary THD)                              │
+│  J-A Hysteresis            Asymmetric Tanh                          │
+│  (magnetic memory)         (primary THD)                             │
 │    │                             │                                   │
 │    │                             ↓                                   │
-│    │                      Level-Dependent Atan                       │
-│    │                      (knee steepening)                          │
-│    │                             │                                   │
-│    │                             ↓                                   │
-│    │                      Re-emphasis (CCIR 30 IPS)                  │
+│    │                       Level-Dependent Atan                      │
+│    │                       (knee steepening)                         │
 │    │                             │                                   │
 │    ↓                             ↓                                   │
 │  Level-Dependent Blend ←─────────┘                                   │
-│  (envelope follower)                                                 │
+│    │                                                                 │
+│    ↓                                                                 │
+│  Re-emphasis (CCIR 30 IPS) ──── Restore highs after blend           │
 │    │                                                                 │
 │    ↓                                                                 │
 │  DC Block (4th-order Butterworth @ 5Hz)                             │
@@ -190,9 +189,13 @@ J-A:   blendMax=1.0, threshold=0.60, width=1.2
 
 ### Oversampling
 
-- 2x oversampling with minimum-phase IIR filters
-- Reduces aliasing from nonlinear saturation
-- Latency reported to DAW for automatic compensation
+**2x minimum-phase IIR** was a deliberate choice:
+
+- **Why 2x?** This plugin is low-THD by design—the saturation is gentle enough that 2x provides sufficient anti-aliasing without the CPU cost of 4x or 8x
+- **Why minimum-phase?** Linear-phase filters preserve transients perfectly, but real tape doesn't. Minimum-phase adds subtle transient softening that brings us closer to the machine emulations
+- **The tradeoff:** We get natural-sounding transient behavior *and* adequate aliasing suppression in one stage
+
+Latency is reported to DAW for automatic compensation.
 
 ### Unity Gain at Defaults
 
