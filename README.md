@@ -247,15 +247,6 @@ J-A:   blendMax=1.0, threshold=0.60, width=1.2
 - Final makeup: +6dB (2.0x)
 - Net result: Unity gain with headroom before saturation
 
-## Installation
-
-Pre-built macOS plugins are available in `Builds/macOS/`:
-
-```bash
-cp -R "Builds/macOS/Low THD Tape Sim.vst3" ~/Library/Audio/Plug-Ins/VST3/
-cp -R "Builds/macOS/Low THD Tape Sim.component" ~/Library/Audio/Plug-Ins/Components/
-```
-
 ## Building from Source
 
 ```bash
@@ -280,11 +271,9 @@ LOWTHD/
 │   ├── HybridTapeProcessor.cpp/h   # Main saturation engine
 │   ├── JilesAthertonCore.h         # Physics-based hysteresis
 │   └── PreEmphasis.cpp/h           # CCIR 30 IPS EQ
-├── Plugin/Source/
-│   ├── PluginProcessor.cpp/h       # JUCE wrapper, oversampling
-│   └── PluginEditor.cpp/h          # UI
-└── Tests/
-    └── *.cpp                       # Validation suite
+└── Plugin/Source/
+    ├── PluginProcessor.cpp/h       # JUCE wrapper, oversampling
+    └── PluginEditor.cpp/h          # UI
 ```
 
 ## Credits

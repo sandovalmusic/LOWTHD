@@ -22,7 +22,7 @@ juce_add_plugin(LowTHDTape
     COMPANY_NAME "TapeHysteresis"
     PLUGIN_MANUFACTURER_CODE TpHs
     PLUGIN_CODE LwTH
-    FORMATS VST3 AU
+    FORMATS VST3 $<$<PLATFORM_ID:Darwin>:AU>
     PRODUCT_NAME "Low THD Tape Sim"
     DESCRIPTION "Ampex ATR-102 + Studer A820 - Precision tape emulation"
     IS_SYNTH FALSE
