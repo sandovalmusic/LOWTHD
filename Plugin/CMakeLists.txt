@@ -50,6 +50,7 @@ target_sources(LowTHDTape PRIVATE
     Source/PluginEditor.cpp
     ../Source/DSP/HybridTapeProcessor.cpp
     ../Source/DSP/PreEmphasis.cpp
+    ../Source/DSP/MachineEQ.cpp
 )
 
 # Include directories

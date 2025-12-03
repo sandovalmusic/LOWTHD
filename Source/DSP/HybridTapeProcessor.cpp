@@ -16,6 +16,7 @@ void HybridTapeProcessor::setSampleRate(double sampleRate)
     reEmphasis.setSampleRate(sampleRate);
     deEmphasis.setSampleRate(sampleRate);
     jaCore.setSampleRate(sampleRate);
+    machineEQ.setSampleRate(sampleRate);
 
     // Configure dispersive allpass cascade for HF phase smear
     for (int i = 0; i < NUM_DISPERSIVE_STAGES; ++i) {
@@ -57,6 +58,7 @@ void HybridTapeProcessor::reset()
     reEmphasis.reset();
     deEmphasis.reset();
     jaCore.reset();
+    machineEQ.reset();
 
     for (int i = 0; i < NUM_DISPERSIVE_STAGES; ++i) {
         dispersiveAllpass[i].reset();
@@ -69,10 +71,11 @@ void HybridTapeProcessor::reset()
     jaEnvelope = 0.0;
 }
 
-void HybridTapeProcessor::setParameters(double biasStrength, double inputGain)
+void HybridTapeProcessor::setParameters(double biasStrength, double inputGain, bool tapeBumpOn)
 {
     currentBiasStrength = std::clamp(biasStrength, 0.0, 1.0);
     currentInputGain = inputGain;
+    tapeBumpEnabled = tapeBumpOn;
     updateCachedValues();
 }
 
@@ -147,6 +150,9 @@ void HybridTapeProcessor::updateCachedValues()
         double freq = dispersiveCornerFreq * std::pow(2.0, i * 0.5);
         dispersiveAllpass[i].setFrequency(freq, fs);
     }
+
+    // Update machine EQ
+    machineEQ.setMachine(isAmpexMode ? MachineEQ::Machine::Ampex : MachineEQ::Machine::Studer);
 }
 
 double HybridTapeProcessor::processSample(double input)
@@ -185,6 +191,11 @@ double HybridTapeProcessor::processSample(double input)
 
     // Re-emphasis (restore highs)
     double output = reEmphasis.processSample(blended);
+
+    // Machine-specific EQ ("Tape Bump")
+    if (tapeBumpEnabled) {
+        output = machineEQ.processSample(output);
+    }
 
     // HF dispersive allpass (tape head phase smear)
     for (int i = 0; i < NUM_DISPERSIVE_STAGES; ++i) {

@@ -63,6 +63,7 @@ public:
     static constexpr const char* PARAM_MACHINE_MODE = "machineMode";
     static constexpr const char* PARAM_INPUT_TRIM = "inputTrim";
     static constexpr const char* PARAM_OUTPUT_TRIM = "outputTrim";
+    static constexpr const char* PARAM_TAPE_BUMP = "tapeBump";
 
     // Access to parameter tree state
     juce::AudioProcessorValueTreeState& getValueTreeState() { return parameters; }
@@ -86,6 +87,7 @@ private:
     std::atomic<float>* machineModeParam = nullptr;
     std::atomic<float>* inputTrimParam = nullptr;
     std::atomic<float>* outputTrimParam = nullptr;
+    std::atomic<float>* tapeBumpParam = nullptr;
 
     // Level metering
     std::atomic<float> currentLevelDB { -96.0f };

@@ -9,6 +9,7 @@
 
 #include "PreEmphasis.h"
 #include "JilesAthertonCore.h"
+#include "MachineEQ.h"
 
 namespace TapeHysteresis
 {
@@ -40,8 +41,9 @@ namespace TapeHysteresis
  *   4. Asymmetric tanh saturation path (THD curve + E/O ratio)
  *   5. Level-dependent parallel blend of J-A and tanh paths
  *   6. Re-emphasis (CCIR 30 IPS) - restore highs after saturation
- *   7. HF dispersive allpass (tape head phase smear)
- *   8. DC blocking (4th-order @ 5Hz)
+ *   7. Machine EQ (Jack Endino measurements) - optional "Tape Bump"
+ *   8. HF dispersive allpass (tape head phase smear)
+ *   9. DC blocking (4th-order @ 5Hz)
  *
  * The hybrid approach provides:
  *   - Correct THD vs level curve (from tanh)
@@ -66,8 +68,9 @@ public:
      *                       < 0.74 = Master (Ampex ATR-102)
      *                       >= 0.74 = Tracks (Studer A820)
      * @param inputGain - Input gain scaling
+     * @param tapeBumpEnabled - Enable machine-specific EQ curve
      */
-    void setParameters(double biasStrength, double inputGain);
+    void setParameters(double biasStrength, double inputGain, bool tapeBumpEnabled = true);
 
     /**
      * Process a single sample through the tape saturation model
@@ -92,6 +95,7 @@ private:
     double currentBiasStrength = 0.65;
     double currentInputGain = 1.0;
     bool isAmpexMode = true;
+    bool tapeBumpEnabled = true;
 
     // Sample rate
     double fs = 48000.0;
@@ -178,6 +182,9 @@ private:
     JilesAthertonCore jaCore;
     double jaInputScale = 3.0;    // Input scaling to J-A working range
     double jaOutputScale = 1.0;   // Output scaling back to audio range
+
+    // Machine-specific EQ (Jack Endino measurements)
+    MachineEQ machineEQ;
 
     // Note: PluginProcessor handles 2x oversampling externally via JUCE's Oversampling class
 };
