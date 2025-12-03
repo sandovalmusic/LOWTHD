@@ -256,6 +256,22 @@ The 2x sweet spot gives us natural transient behavior, adequate aliasing suppres
 
 Latency is reported to DAW for automatic compensation.
 
+### Near-Zero Latency
+
+An unintended benefit of this design is near-zero latency. The 2x minimum-phase IIR oversampling adds approximately 7 samples of latency—less than 0.2ms at 44.1kHz. This is effectively imperceptible.
+
+Most physics-based tape simulations require significant oversampling to handle the nonlinear hysteresis equations without aliasing. ChowTape, the other major Jiles-Atherton implementation, recommends "as much oversampling as your CPU will allow" and offers up to 16x with linear-phase filters. This produces excellent results but introduces substantial latency unsuitable for real-time monitoring.
+
+LOWTHD's approach differs: by designing for subtle saturation from the start, the nonlinear content stays low enough that 2x oversampling provides adequate anti-aliasing. The hysteresis is still physically accurate—it simply operates in a regime where extreme oversampling isn't necessary.
+
+The result is a plugin that can be used for tracking and live monitoring, not just mixing and mastering. This is unusual for a physics-based tape simulation.
+
+### Low CPU Usage
+
+The same design choices that enable low latency also minimize CPU consumption. The plugin runs a single 2x oversampling stage, one Jiles-Atherton hysteresis pass, and straightforward filter stages. There are no iterative solvers running at 16x the sample rate, no neural network inference, and no convolution.
+
+On a typical modern system, LOWTHD uses a fraction of the CPU required by more complex tape emulations. Multiple instances can run simultaneously without significant impact on system resources.
+
 ### Unity Gain at Defaults
 
 - Default Drive: -6dB (0.5x)
