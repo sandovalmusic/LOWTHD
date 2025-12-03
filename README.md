@@ -115,7 +115,7 @@ Individually, nearly imperceptible. Together, fuller bass, cohesive mids, smooth
 
 | Control | Range | Default | Function |
 |---------|-------|---------|----------|
-| **Machine Mode** | Master / Tracks | Master | Ampex ATR-102 or Studer A820 |
+| **Mode** | Master / Tracks | Master | Ampex ATR-102 or Studer A820 |
 | **Drive** | -12dB to +18dB | -6dB | Input level into saturation |
 | **Volume** | -20dB to +9.5dB | 0dB | Final output level |
 

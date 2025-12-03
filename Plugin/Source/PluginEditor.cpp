@@ -18,7 +18,7 @@ LowTHDTapeSimulatorAudioProcessorEditor::LowTHDTapeSimulatorAudioProcessorEditor
     addAndMakeVisible (titleLabel);
 
     // Machine Mode ComboBox
-    machineModeLabel.setText ("Machine", juce::dontSendNotification);
+    machineModeLabel.setText ("Mode", juce::dontSendNotification);
     machineModeLabel.setFont (juce::FontOptions (14.0f, juce::Font::bold));
     machineModeLabel.setJustificationType (juce::Justification::centredLeft);
     machineModeLabel.setColour (juce::Label::textColourId, textColour);
