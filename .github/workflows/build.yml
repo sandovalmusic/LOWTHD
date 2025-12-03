@@ -44,7 +44,8 @@ jobs:
             libxrender-dev \
             libwebkit2gtk-4.0-dev \
             libglu1-mesa-dev \
-            mesa-common-dev
+            mesa-common-dev \
+            freeglut3-dev
 
       - name: Configure CMake
         run: cmake -S Plugin -B build -DCMAKE_BUILD_TYPE=Release
@@ -52,30 +53,38 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
+      - name: List build output (debug)
+        shell: bash
+        run: find build -name "*.vst3" -o -name "*.component" 2>/dev/null || true
+
       - name: Upload VST3 (Windows)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: LOWTHD-Windows-VST3
-          path: build/LowTHDTape_artefacts/Release/VST3/*.vst3
+          path: build/**/VST3/**/*.vst3
+          if-no-files-found: error
 
       - name: Upload VST3 (macOS)
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: LOWTHD-macOS-VST3
-          path: build/LowTHDTape_artefacts/Release/VST3/*.vst3
+          path: build/**/VST3/**/*.vst3
+          if-no-files-found: error
 
       - name: Upload AU (macOS)
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: LOWTHD-macOS-AU
-          path: build/LowTHDTape_artefacts/Release/AU/*.component
+          path: build/**/AU/**/*.component
+          if-no-files-found: error
 
       - name: Upload VST3 (Linux)
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
           name: LOWTHD-Linux-VST3
-          path: build/LowTHDTape_artefacts/Release/VST3/*.vst3
+          path: build/**/VST3/**/*.vst3
+          if-no-files-found: error
