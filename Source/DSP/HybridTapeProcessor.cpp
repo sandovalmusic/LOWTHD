@@ -106,21 +106,22 @@ void HybridTapeProcessor::updateCachedValues()
         jaOutputScale = 150.0;
 
         // Tuned for MOL @ +12dB with E/O ~0.5
-        tanhDrive = 0.175;         // Tuned for ~3% THD at +12dB
-        tanhAsymmetry = 1.19;      // Tuned for E/O = 0.503
+        // Strategy: tanh for level + atan steepening for curve shape
+        tanhDrive = 0.20;          // Target 3% THD at +12dB
+        tanhAsymmetry = 1.12;      // Reduced for E/O closer to 0.5 at operating levels
         tanhBias = tanhAsymmetry - 1.0;
         tanhDcOffset = std::tanh(tanhDrive * tanhBias);
         double tanhNorm = tanhDrive * (1.0 - tanhDcOffset * tanhDcOffset);
         tanhNormFactor = (tanhNorm > 0.001) ? (1.0 / tanhNorm) : 1.0;
 
         jaBlendMax = 1.00;         // Full J-A blend
-        jaBlendThreshold = 0.77;
-        jaBlendWidth = 1.5;
+        jaBlendThreshold = 0.50;   // Lower to engage J-A earlier
+        jaBlendWidth = 2.0;        // Wider blend for smoother transition
 
-        atanDrive = 5.0;
-        atanMixMax = 0.65;
-        atanThreshold = 0.5;
-        atanWidth = 2.5;
+        atanDrive = 6.5;           // Increased for steeper curve at high levels
+        atanMixMax = 0.75;         // More atan contribution
+        atanThreshold = 0.35;      // Engage earlier for cubic shape
+        atanWidth = 2.0;           // Tighter blend
         atanAsymmetry = 1.0;
         useAsymmetricAtan = false;
 
@@ -138,23 +139,23 @@ void HybridTapeProcessor::updateCachedValues()
         jaOutputScale = 105.0;
 
         // Tuned for MOL @ +9dB with E/O ~1.12
-        // Strategy: tanhAsymmetry for E/O, atanAsymmetry for knee + extra H2
-        tanhDrive = 0.150;         // Tuned for ~3% THD at +9dB
-        tanhAsymmetry = 1.41;      // Tuned for E/O = 1.122
+        // Strategy: tanhAsymmetry for E/O, atan for curve steepening
+        tanhDrive = 0.12;          // Fine-tuned for MOL @ +9dB
+        tanhAsymmetry = 1.38;      // Tuned for E/O = 1.122
         tanhBias = tanhAsymmetry - 1.0;
         tanhDcOffset = std::tanh(tanhDrive * tanhBias);
         double tanhNorm = tanhDrive * (1.0 - tanhDcOffset * tanhDcOffset);
         tanhNormFactor = (tanhNorm > 0.001) ? (1.0 / tanhNorm) : 1.0;
 
         jaBlendMax = 1.00;         // Full J-A blend
-        jaBlendThreshold = 0.60;
-        jaBlendWidth = 1.2;
+        jaBlendThreshold = 0.45;   // Engage J-A earlier for smoother curve
+        jaBlendWidth = 2.5;        // Wider blend for gradual transition
 
-        atanDrive = 5.5;
-        atanMixMax = 0.72;
-        atanThreshold = 0.4;
-        atanWidth = 2.5;
-        atanAsymmetry = 1.40;      // Increased for Studer's even-harmonic character (E/O 1.122)
+        atanDrive = 5.5;           // Moderate curve steepening
+        atanMixMax = 0.72;         // Moderate atan contribution
+        atanThreshold = 0.35;      // Earlier engagement for smoother curve
+        atanWidth = 2.5;           // Wider blend for smoother transition
+        atanAsymmetry = 1.42;      // For Studer's even-harmonic character (E/O 1.122)
         useAsymmetricAtan = true;
         atanBias = atanAsymmetry - 1.0;
         atanDcOffset = std::atan(atanDrive * atanBias);
