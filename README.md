@@ -412,7 +412,7 @@ The result: a physics-based tape simulation suitable for tracking and live monit
 
 ### Low CPU Usage
 
-The same design choices minimize CPU consumption. Single 2x oversampling stage, one Jiles-Atherton pass, and efficient biquad filters. The bias shielding curves use 5 cascaded biquads per channel—straightforward arithmetic with no iterative solvers, neural network inference, or convolution.
+The same design choices minimize CPU consumption. Single 2x oversampling stage, one Jiles-Atherton pass (using a Newton-Raphson solver with 8-iteration limit), and efficient biquad filters. The bias shielding curves use 5 cascaded biquads per channel—no neural network inference or convolution.
 
 Multiple instances run simultaneously without significant system impact.
 
