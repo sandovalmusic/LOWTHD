@@ -75,15 +75,22 @@ bool testAmpexEQ(double sampleRate)
         const char* description;
     };
 
+    // Pro-Q4 reference targets:
+    // 20Hz=-2.7dB, 28Hz=0dB, 40Hz=+1.15dB, 70Hz=+0.17dB, 105Hz=+0.3dB, 150Hz=0dB,
+    // 350Hz=-0.5dB, 1200Hz=-0.3dB, 3kHz=-0.45dB, 10kHz=0dB, 16kHz=-0.25dB, 21.5kHz=0dB
     std::vector<TestPoint> testPoints = {
-        {20.0, -2.5, 1.5, "HP rolloff region"},
-        {40.0, 1.0, 0.5, "Head bump peak"},
-        {100.0, 0.5, 0.5, "Post head-bump"},
-        {250.0, -0.6, 0.5, "Low-mid dip"},
-        {1000.0, -0.2, 0.3, "Mid reference"},
-        {6000.0, -0.6, 0.3, "6kHz dip"},
-        {10000.0, -0.4, 0.3, "Upper HF"},
-        {20000.0, 0.1, 0.5, "HF lift from 30k bell"},
+        {20.0, -2.4, 0.5, "HP rolloff (-2.7dB target)"},
+        {28.0, -0.3, 0.5, "Near unity (0dB target)"},
+        {40.0, 1.15, 0.3, "Head bump peak (+1.15dB target)"},
+        {70.0, 0.0, 0.3, "70Hz (+0.17dB target)"},
+        {105.0, 0.5, 0.3, "105Hz (+0.3dB target)"},
+        {150.0, 0.0, 0.3, "Flat (0dB target)"},
+        {350.0, -0.5, 0.3, "Low-mid dip (-0.5dB target)"},
+        {1200.0, -0.3, 0.2, "1200Hz (-0.3dB target)"},
+        {3000.0, -0.3, 0.2, "3kHz (-0.45dB target)"},
+        {10000.0, -0.2, 0.3, "10kHz (0dB target)"},
+        {16000.0, -0.1, 0.3, "16kHz (-0.25dB target)"},
+        {21500.0, 0.1, 0.3, "21.5kHz (0dB target)"},
     };
 
     bool allPassed = true;

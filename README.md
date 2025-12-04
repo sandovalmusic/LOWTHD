@@ -66,6 +66,15 @@ The plugin combines three complementary saturation stages:
 
 3. **Level-Dependent Atan** — Soft-clipping that engages at high levels to hit MOL targets.
 
+### Machine EQ (Head Bump)
+
+Each machine includes a modest head bump modeled after the total output EQ of both respective machines running at 30 IPS. These frequency response curves are always active based on the selected mode.
+
+| Mode | Character | Low End | Head Bump |
+|------|-----------|---------|-----------|
+| **Ampex** | Cleaner, tighter | HP @ 20Hz | +1.15dB @ 40Hz |
+| **Studer** | Fuller, warmer | 18dB/oct HP @ 27Hz | +0.7dB @ 50Hz, +1.2dB @ 110Hz |
+
 ### HF Phase Smear
 
 Real tape heads create frequency-dependent phase shifts—higher frequencies experience slightly more delay due to head gap geometry. This subtly softens transients without dulling the highs.
@@ -101,6 +110,7 @@ The cumulative effect of many small colorations creates the "tape sound":
 - Hysteresis: ~0.01-0.05% THD with frequency-dependent phase
 - Asymmetric saturation: controlled harmonics at <1%
 - De/re-emphasis: ~3-4dB frequency-dependent saturation difference
+- Head bump: +1-2dB low frequency lift per machine
 - Phase smear: 10-21μs transient softening
 - Azimuth delay: 8-12μs stereo decorrelation
 
@@ -153,6 +163,8 @@ Individually, nearly imperceptible. Together, fuller bass, cohesive mids, smooth
 │  Re-emphasis (CCIR 30 IPS) ──── Restore highs                       │
 │    ↓                                                                 │
 │  HF Dispersive Allpass (4-stage)                                    │
+│    ↓                                                                 │
+│  Machine EQ (head bump, always-on per mode)                         │
 │    ↓                                                                 │
 │  DC Block (4th-order Butterworth @ 5Hz)                             │
 │    ↓                                                                 │
@@ -270,7 +282,8 @@ LOWTHD/
 ├── Source/DSP/
 │   ├── HybridTapeProcessor.cpp/h   # Main saturation engine
 │   ├── JilesAthertonCore.h         # Physics-based hysteresis
-│   └── PreEmphasis.cpp/h           # CCIR 30 IPS EQ
+│   ├── PreEmphasis.cpp/h           # CCIR 30 IPS EQ
+│   └── MachineEQ.cpp/h             # Head bump EQ per machine
 └── Plugin/Source/
     ├── PluginProcessor.cpp/h       # JUCE wrapper, oversampling
     └── PluginEditor.cpp/h          # UI
