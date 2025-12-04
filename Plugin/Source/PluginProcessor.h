@@ -98,7 +98,7 @@ private:
 
     // Crosstalk filter for Studer mode
     // Simulates adjacent track bleed on 24-track tape machines
-    // Bandpassed mono signal mixed at -40dB into both channels
+    // Bandpassed mono signal mixed at -50dB into both channels
     struct CrosstalkFilter
     {
         // Simple biquad for HP and LP
@@ -149,7 +149,7 @@ private:
 
         Biquad highpass;  // ~100Hz HP
         Biquad lowpass;   // ~8kHz LP
-        float gain = 0.01f;  // -40dB
+        float gain = 0.00316f;  // -50dB (Studer A820 spec)
 
         void prepare(float sampleRate)
         {
