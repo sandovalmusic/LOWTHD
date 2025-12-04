@@ -100,6 +100,10 @@ void HybridTapeProcessor::updateCachedValues()
 
         tanhDrive = 0.095;
         tanhAsymmetry = 1.08;
+        tanhBias = tanhAsymmetry - 1.0;
+        tanhDcOffset = std::tanh(tanhDrive * tanhBias);
+        double tanhNorm = tanhDrive * (1.0 - tanhDcOffset * tanhDcOffset);
+        tanhNormFactor = (tanhNorm > 0.001) ? (1.0 / tanhNorm) : 1.0;
 
         jaBlendMax = 1.00;
         jaBlendThreshold = 0.77;
@@ -126,6 +130,10 @@ void HybridTapeProcessor::updateCachedValues()
 
         tanhDrive = 0.14;
         tanhAsymmetry = 1.18;
+        tanhBias = tanhAsymmetry - 1.0;
+        tanhDcOffset = std::tanh(tanhDrive * tanhBias);
+        double tanhNorm = tanhDrive * (1.0 - tanhDcOffset * tanhDcOffset);
+        tanhNormFactor = (tanhNorm > 0.001) ? (1.0 / tanhNorm) : 1.0;
 
         jaBlendMax = 1.00;
         jaBlendThreshold = 0.60;
@@ -137,6 +145,11 @@ void HybridTapeProcessor::updateCachedValues()
         atanWidth = 2.5;
         atanAsymmetry = 1.25;
         useAsymmetricAtan = true;
+        atanBias = atanAsymmetry - 1.0;
+        atanDcOffset = std::atan(atanDrive * atanBias);
+        double driveBias = atanDrive * atanBias;
+        double atanNorm = atanDrive / (1.0 + driveBias * driveBias);
+        atanNormFactor = (atanNorm > 0.001) ? (1.0 / atanNorm) : 1.0;
 
         dispersiveCornerFreq = 3500.0;
     }
@@ -192,10 +205,8 @@ double HybridTapeProcessor::processSample(double input)
     // Re-emphasis (restore highs)
     double output = reEmphasis.processSample(blended);
 
-    // Machine-specific EQ ("Tape Bump")
-    if (tapeBumpEnabled) {
-        output = machineEQ.processSample(output);
-    }
+    // Machine-specific EQ (always on)
+    output = machineEQ.processSample(output);
 
     // HF dispersive allpass (tape head phase smear)
     for (int i = 0; i < NUM_DISPERSIVE_STAGES; ++i) {
@@ -211,18 +222,9 @@ double HybridTapeProcessor::processSample(double input)
 
 double HybridTapeProcessor::asymmetricTanh(double x)
 {
-    double bias = tanhAsymmetry - 1.0;
-    double biased = x + bias;
+    double biased = x + tanhBias;
     double saturated = std::tanh(tanhDrive * biased);
-    double dcOffset = std::tanh(tanhDrive * bias);
-    double output = saturated - dcOffset;
-
-    double normFactor = tanhDrive * (1.0 - dcOffset * dcOffset);
-    if (normFactor > 0.001) {
-        output /= normFactor;
-    }
-
-    return output;
+    return (saturated - tanhDcOffset) * tanhNormFactor;
 }
 
 double HybridTapeProcessor::softAtan(double x)
@@ -234,20 +236,9 @@ double HybridTapeProcessor::softAtan(double x)
 double HybridTapeProcessor::asymmetricAtan(double x)
 {
     if (atanDrive < 0.001) return x;
-
-    double bias = atanAsymmetry - 1.0;
-    double biased = x + bias;
+    double biased = x + atanBias;
     double saturated = std::atan(atanDrive * biased);
-    double dcOffset = std::atan(atanDrive * bias);
-    double output = saturated - dcOffset;
-
-    double driveBias = atanDrive * bias;
-    double normFactor = atanDrive / (1.0 + driveBias * driveBias);
-    if (normFactor > 0.001) {
-        output /= normFactor;
-    }
-
-    return output;
+    return (saturated - atanDcOffset) * atanNormFactor;
 }
 
 double HybridTapeProcessor::processRightChannel(double input)

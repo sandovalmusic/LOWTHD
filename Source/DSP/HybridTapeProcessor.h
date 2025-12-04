@@ -103,6 +103,9 @@ private:
     // Tanh saturation parameters
     double tanhDrive = 0.11;      // Controls saturation intensity
     double tanhAsymmetry = 0.80;  // Controls even/odd harmonic balance
+    double tanhBias = 0.0;        // Cached: tanhAsymmetry - 1.0
+    double tanhDcOffset = 0.0;    // Cached: tanh(tanhDrive * tanhBias)
+    double tanhNormFactor = 1.0;  // Cached: 1.0 / (tanhDrive * (1 - dcOffset^2))
 
     // Atan saturation parameters (level-dependent series blend after tanh)
     // Adds extra knee steepness at high levels without affecting low-level THD
@@ -112,6 +115,9 @@ private:
     double atanWidth = 1.0;       // Crossfade width
     double atanAsymmetry = 1.0;   // 1.0 = symmetric (Ampex), >1.0 = asymmetric (Studer)
     bool useAsymmetricAtan = false; // false = symmetric atan, true = asymmetric atan
+    double atanBias = 0.0;        // Cached: atanAsymmetry - 1.0
+    double atanDcOffset = 0.0;    // Cached: atan(atanDrive * atanBias)
+    double atanNormFactor = 1.0;  // Cached normalization factor
 
     // Helper functions
     void updateCachedValues();
