@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
+#include <random>
 #include "DSP/HybridTapeProcessor.h"
 
 //==============================================================================
@@ -214,9 +215,13 @@ private:
         Biquad bandpassL, bandpassR;
 
         // LFO phases (3 incommensurate frequencies for organic feel)
+        // Randomized on construction for unique behavior per plugin instance
         float phase1 = 0.0f;
         float phase2 = 0.0f;
         float phase3 = 0.0f;
+        float initialPhase1 = 0.0f;  // Store initial random phases
+        float initialPhase2 = 0.0f;
+        float initialPhase3 = 0.0f;
 
         // LFO frequencies (Hz) - slow wow rates
         static constexpr float freq1 = 0.63f;   // Primary wow
@@ -231,6 +236,23 @@ private:
         float sampleRate = 48000.0f;
         float centerFreq = 60.0f;      // Head bump center (set per machine)
         float modulationDepth = 0.012f; // ±0.1dB = ±0.012 linear (set per machine)
+
+        // Constructor randomizes LFO phases for unique behavior per instance
+        HeadBumpModulator()
+        {
+            // Use random_device for true randomness on each plugin instantiation
+            std::random_device rd;
+            std::mt19937 gen(rd());
+            std::uniform_real_distribution<float> dist(0.0f, 6.28318530718f);
+
+            initialPhase1 = dist(gen);
+            initialPhase2 = dist(gen);
+            initialPhase3 = dist(gen);
+
+            phase1 = initialPhase1;
+            phase2 = initialPhase2;
+            phase3 = initialPhase3;
+        }
 
         void prepare(float sr, bool isAmpex)
         {
@@ -265,9 +287,10 @@ private:
         {
             bandpassL.reset();
             bandpassR.reset();
-            phase1 = 0.0f;
-            phase2 = 0.3f;  // Offset for variety
-            phase3 = 0.7f;
+            // Restore initial random phases (consistent per instance, random across instances)
+            phase1 = initialPhase1;
+            phase2 = initialPhase2;
+            phase3 = initialPhase3;
         }
 
         // Call once per block to update LFO (block-rate processing)
