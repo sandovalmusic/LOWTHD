@@ -90,12 +90,18 @@ Each machine includes a modest head bump modeled after the total output EQ of bo
 
 Real tape heads create frequency-dependent phase shifts—higher frequencies experience slightly more delay due to head gap geometry. This subtly softens transients without dulling the highs.
 
-We emulate this with a 4-stage dispersive allpass cascade:
+The physics: phase smear onset frequency relates to head gap width via **f_null = tape_speed / gap_width**. Wider gaps create earlier phase effects.
 
-| Mode | Phase @ 8kHz | Transient Smear |
-|------|--------------|-----------------|
-| Ampex | -124° | 10μs |
-| Studer | -116° | 21μs |
+We emulate this with a 4-stage dispersive allpass cascade, with corner frequencies based on actual head gap specifications:
+
+| Machine | Head Gap | Corner Freq | Character |
+|---------|----------|-------------|-----------|
+| **Ampex ATR-102** | 0.25μm ceramic | 10kHz | Minimal smear |
+| **Studer A820** | 3μm (1.317 playback) | 2.8kHz | More pronounced HF smear |
+
+The ATR-102's ceramic mastering head (Flux Magnetics spec) has a gap 12× narrower than the Studer's playback head, resulting in phase effects only at the very top of the audio spectrum.
+
+**Note:** LOWTHD models a *transformerless* ATR-102 configuration. Many studios modified their ATR-102s to bypass the input/output transformers for a cleaner signal path—this was a common high-end modification, not stock. The transformerless config further reduces reactive contributions to phase smear.
 
 ### Stereo Processing
 
@@ -230,19 +236,19 @@ INPUT (from DAW)
 │     │                                                                       │
 │  6. SATURATION PATH B: ASYMMETRIC TANH                                     │
 │     │  └─ asymmetricTanh(x) = (tanh(drive*(x+bias)) - dcOffset) * normFactor│
-│     │  └─ Ampex: drive=0.095, asymmetry=1.08 (odd-dominant)                │
-│     │  └─ Studer: drive=0.14, asymmetry=1.18 (even-dominant)               │
+│     │  └─ Ampex: drive=0.20, asymmetry=1.12 (odd-dominant)                 │
+│     │  └─ Studer: drive=0.12, asymmetry=1.38 (even-dominant)               │
 │     │                                                                       │
 │  7. LEVEL-DEPENDENT ATAN (series after tanh)                               │
 │     │  └─ Blends in at high levels for knee steepening                     │
-│     │  └─ Ampex: symmetric atan, drive=5.0, mixMax=0.65                    │
-│     │  └─ Studer: asymmetric atan, drive=5.5, mixMax=0.72, asym=1.25       │
+│     │  └─ Ampex: symmetric atan, drive=6.5, mixMax=0.75                    │
+│     │  └─ Studer: asymmetric atan, drive=5.5, mixMax=0.72, asym=1.42       │
 │     │  └─ Crossfade based on envelope vs threshold                          │
 │     │                                                                       │
 │  8. PARALLEL BLEND (J-A + Tanh paths)                                      │
 │     └─ jaBlend = smoothstep based on envelope level                         │
-│     └─ Ampex: threshold=0.77, width=1.5, max=1.0                           │
-│     └─ Studer: threshold=0.60, width=1.2, max=1.0                          │
+│     └─ Ampex: threshold=0.50, width=2.0, max=1.0                           │
+│     └─ Studer: threshold=0.45, width=2.5, max=1.0                          │
 │     └─ output = jaPath * jaBlend + tanhPath * (1 - jaBlend)                │
 │                                                                             │
 │  9. RE-EMPHASIS (AC Bias Shielding Inverse)                                │
@@ -279,9 +285,9 @@ INPUT (from DAW)
 │                                                                             │
 │ 11. HF DISPERSIVE ALLPASS (4 stages)                                       │
 │     └─ Creates frequency-dependent phase shift (head gap smear)            │
-│     └─ Ampex: corner=4500Hz, stages at 4.5k, 6.4k, 9k, 12.7kHz            │
-│     └─ Studer: corner=3500Hz, stages at 3.5k, 4.9k, 7k, 9.9kHz            │
-│     └─ Each stage: 1st-order allpass                                        │
+│     └─ Ampex: corner=10kHz, stages at 10k, 14.1k, 20k, 28.3kHz            │
+│     └─ Studer: corner=2.8kHz, stages at 2.8k, 4k, 5.6k, 7.9kHz            │
+│     └─ Each stage: 1st-order allpass (half-octave spacing)                 │
 │                                                                             │
 │ 12. DC BLOCKING (4th-order Butterworth @ 5Hz)                              │
 │     └─ Two cascaded 2nd-order highpass biquads                             │
@@ -428,16 +434,16 @@ The J-A model simulates magnetic domain behavior. Low frequencies have slower ze
 
 **Ampex ATR-102:**
 ```
-Tanh:  drive=0.175, asymmetry=1.19
-Atan:  drive=5.0, mixMax=0.65, threshold=0.5, width=2.5, symmetric
-J-A:   blendMax=1.0, threshold=0.77, width=1.5
+Tanh:  drive=0.20, asymmetry=1.12
+Atan:  drive=6.5, mixMax=0.75, threshold=0.35, width=2.0, symmetric
+J-A:   blendMax=1.0, threshold=0.50, width=2.0
 ```
 
 **Studer A820:**
 ```
-Tanh:  drive=0.150, asymmetry=1.41
-Atan:  drive=5.5, mixMax=0.72, threshold=0.4, width=2.5, asymmetric=1.40
-J-A:   blendMax=1.0, threshold=0.60, width=1.2
+Tanh:  drive=0.12, asymmetry=1.38
+Atan:  drive=5.5, mixMax=0.72, threshold=0.35, width=2.5, asymmetric=1.42
+J-A:   blendMax=1.0, threshold=0.45, width=2.5
 ```
 
 ### Unity Gain at Defaults
