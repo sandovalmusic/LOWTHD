@@ -125,15 +125,17 @@ private:
     // Fine-tuned to match Pro-Q4 reference:
     // Targets: 20Hz=-2.7dB, 28Hz=0dB, 40Hz=+1.15dB, 70Hz=+0.17dB, 105Hz=+0.3dB, 150Hz=0dB,
     //          350Hz=-0.5dB, 1200Hz=-0.3dB, 3kHz=-0.45dB, 10kHz=0dB, 16kHz=-0.25dB, 21.5kHz=0dB
-    EQBiquad ampexHP;           // 20.5 Hz, 12 dB/oct
-    EQBiquad ampexBell1;        // 40 Hz, Q 1.58, +1.5 dB
-    EQBiquad ampexBell2;        // 65 Hz, Q 1.265, -3.5 dB
-    EQBiquad ampexBell3;        // 75 Hz, Q 0.8, +3.0 dB
-    EQBiquad ampexBell4;        // 150 Hz, Q 1.0, +0.2 dB
-    EQBiquad ampexBell5;        // 230 Hz, Q 0.6, -0.8 dB
-    EQBiquad ampexBell6;        // 3000 Hz, Q 0.6, -0.15 dB
-    EQBiquad ampexBell7;        // 6000 Hz, Q 0.4, -0.35 dB
-    EQBiquad ampexBell8;        // 30000 Hz, Q 0.6, +2.0 dB
+    EQBiquad ampexHP;           // HP filter
+    EQBiquad ampexBell1;        // 28 Hz lift
+    EQBiquad ampexBell2;        // 40 Hz head bump
+    EQBiquad ampexBell3;        // 70 Hz
+    EQBiquad ampexBell4;        // 105 Hz
+    EQBiquad ampexBell5;        // 150 Hz
+    EQBiquad ampexBell6;        // 350 Hz dip
+    EQBiquad ampexBell7;        // 1200 Hz
+    EQBiquad ampexBell8;        // 3000 Hz
+    EQBiquad ampexBell9;        // 10kHz / 16kHz
+    EQBiquad ampexBell10;       // HF lift
     FirstOrderFilter ampexLP;   // 30000 Hz, 6 dB/oct
 
     // Studer A820 "Tracks" EQ
