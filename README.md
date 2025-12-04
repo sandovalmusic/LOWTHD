@@ -42,9 +42,20 @@ The Jiles-Atherton hysteresis model is a physics-based description of ferromagne
 
 LOWTHD simulates the effect of proper bias through three mechanisms:
 
-**Frequency-Selective Saturation**
+**Frequency-Selective Saturation (AC Bias Shielding)**
 
-AC bias partially erases high-frequency content, which is why professional tape maintains treble clarity while saturating the bass and midrange. We replicate this by applying the CCIR 30 IPS (35μs) de-emphasis curve before saturation (cutting highs up to 13dB at 20kHz), then restoring them afterward with the exact inverse curve.
+Real tape machines use a ~150kHz AC bias signal that keeps the magnetic particles in constant motion, linearizing their response. At low and mid frequencies, the bias is fully effective—but as audio wavelengths approach the bias wavelength, the shielding effect breaks down and saturation increases.
+
+Since we can't actually inject 150kHz bias into a digital model, we simulate its *effect* on the frequency response. Before saturation, we apply machine-specific de-emphasis curves that model where bias stops being effective:
+
+| Machine | Flat Through | Rolloff Start | @ 20kHz |
+|---------|-------------|---------------|---------|
+| **Ampex ATR-102** | 6kHz | 7kHz | -12dB |
+| **Studer A820** | 7kHz | 8kHz | -10dB |
+
+The wider head gap on the Ampex means bias loses effectiveness at slightly lower frequencies. The Studer's narrower multitrack heads and higher bias oscillator frequency keep bias effective slightly longer.
+
+After saturation, we restore the highs with the exact inverse curve—frequencies that were cut experience less distortion (protected by the simulated bias), while the lows and mids get the full saturation character.
 
 **Level-Dependent Nonlinearity**
 
@@ -157,7 +168,7 @@ The cumulative effect of many small colorations creates the "tape sound":
 
 - Hysteresis: ~0.01-0.05% THD with frequency-dependent phase
 - Asymmetric saturation: controlled harmonics at <1%
-- De/re-emphasis: up to 13dB frequency-dependent saturation difference (CCIR 35μs)
+- De/re-emphasis: up to 12dB frequency-dependent saturation difference (AC bias shielding)
 - Head bump: +1-2dB low frequency lift per machine
 - Phase smear: 10-21μs transient softening
 - Azimuth delay: 8-12μs stereo decorrelation
@@ -204,9 +215,10 @@ INPUT (from DAW)
 │     └─ Track signal level for blend decisions                               │
 │     └─ Attack: 0.002 coeff (~3ms), Release: 0.020 coeff (~30ms)            │
 │                                                                             │
-│  4. DE-EMPHASIS (CCIR 30 IPS, 35μs)                                        │
-│     └─ 5-stage biquad EQ matching CCIR curve within ±0.5dB                 │
-│     └─ Cuts highs: +0dB@1kHz, -3dB@4.5kHz, -7.7dB@10kHz, -13dB@20kHz      │
+│  4. DE-EMPHASIS (AC Bias Shielding)                                        │
+│     └─ 5-stage biquad EQ modeling where bias stops being effective         │
+│     └─ Ampex: Flat to 6kHz, -4.5dB@10kHz, -12dB@20kHz                      │
+│     └─ Studer: Flat to 7kHz, -3dB@10kHz, -10dB@20kHz                       │
 │                                                                             │
 │  5. SATURATION PATH A: JILES-ATHERTON HYSTERESIS                           │
 │     │  └─ Physics-based magnetic domain model                               │
@@ -233,9 +245,10 @@ INPUT (from DAW)
 │     └─ Studer: threshold=0.60, width=1.2, max=1.0                          │
 │     └─ output = jaPath * jaBlend + tanhPath * (1 - jaBlend)                │
 │                                                                             │
-│  9. RE-EMPHASIS (CCIR 30 IPS, 35μs)                                        │
+│  9. RE-EMPHASIS (AC Bias Shielding Inverse)                                │
 │     └─ 5-stage biquad EQ (exact inverse of de-emphasis)                    │
-│     └─ Boosts highs: +0dB@1kHz, +3dB@4.5kHz, +7.7dB@10kHz, +13dB@20kHz    │
+│     └─ Ampex: +4.5dB@10kHz, +12dB@20kHz                                    │
+│     └─ Studer: +3dB@10kHz, +10dB@20kHz                                     │
 │                                                                             │
 │ 10. MACHINE EQ (Head Bump - always on)                                     │
 │     └─ AMPEX ATR-102:                                                       │
@@ -387,7 +400,7 @@ The result: a physics-based tape simulation suitable for tracking and live monit
 
 ### Low CPU Usage
 
-The same design choices minimize CPU consumption. Single 2x oversampling stage, one Jiles-Atherton pass, and efficient biquad filters. The CCIR emphasis uses 5 cascaded biquads per channel—straightforward arithmetic with no iterative solvers, neural network inference, or convolution.
+The same design choices minimize CPU consumption. Single 2x oversampling stage, one Jiles-Atherton pass, and efficient biquad filters. The bias shielding curves use 5 cascaded biquads per channel—straightforward arithmetic with no iterative solvers, neural network inference, or convolution.
 
 Multiple instances run simultaneously without significant system impact.
 
@@ -450,7 +463,7 @@ LOWTHD/
 ├── Source/DSP/
 │   ├── HybridTapeProcessor.cpp/h   # Main saturation engine
 │   ├── JilesAthertonCore.h         # Physics-based hysteresis
-│   ├── PreEmphasis.cpp/h           # CCIR 30 IPS EQ
+│   ├── PreEmphasis.cpp/h           # AC bias shielding curves per machine
 │   └── MachineEQ.cpp/h             # Head bump EQ per machine
 └── Plugin/Source/
     ├── PluginProcessor.cpp/h       # JUCE wrapper, oversampling
@@ -461,4 +474,4 @@ LOWTHD/
 
 Developed by Ben Sandoval
 
-DSP based on Jiles-Atherton magnetic hysteresis, asymmetric tanh/atan saturation, CCIR 30 IPS equalization, and dispersive allpass filtering.
+DSP based on Jiles-Atherton magnetic hysteresis, asymmetric tanh/atan saturation, AC bias shielding modeling, and dispersive allpass filtering.

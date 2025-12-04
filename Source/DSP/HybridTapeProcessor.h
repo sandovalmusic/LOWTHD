@@ -7,7 +7,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-#include "PreEmphasis.h"
+#include "BiasShielding.h"
 #include "JilesAthertonCore.h"
 #include "MachineEQ.h"
 
@@ -36,11 +36,11 @@ namespace TapeHysteresis
  *
  * Signal Flow:
  *   1. Input gain
- *   2. De-emphasis (CCIR 30 IPS) - cut highs before saturation
+ *   2. HF Cut (AC bias shielding) - cut highs before saturation
  *   3. J-A hysteresis path (magnetic memory)
  *   4. Asymmetric tanh saturation path (THD curve + E/O ratio)
  *   5. Level-dependent parallel blend of J-A and tanh paths
- *   6. Re-emphasis (CCIR 30 IPS) - restore highs after saturation
+ *   6. HF Restore (AC bias shielding inverse) - restore highs after saturation
  *   7. Machine EQ (Jack Endino measurements) - optional "Tape Bump"
  *   8. HF dispersive allpass (tape head phase smear)
  *   9. DC blocking (4th-order @ 5Hz)
@@ -49,7 +49,7 @@ namespace TapeHysteresis
  *   - Correct THD vs level curve (from tanh)
  *   - Correct even/odd harmonic balance (from asymmetry)
  *   - History-dependent "tape memory" (from J-A)
- *   - Frequency-dependent saturation (from pre/de-emphasis)
+ *   - Frequency-dependent saturation (from AC bias shielding)
  *   - HF phase smear / "soft focus" (from dispersive allpass)
  */
 
@@ -150,10 +150,10 @@ private:
 
     Biquad dcBlocker1, dcBlocker2;
 
-    // Re-emphasis and de-emphasis (CCIR 30 IPS)
-    // Applied before/after the saturation blend (both paths see same EQ)
-    ReEmphasis reEmphasis;
-    DeEmphasis deEmphasis;
+    // AC Bias Shielding (models 30 IPS bias effectiveness)
+    // HFCut before saturation, HFRestore after (both paths see same EQ)
+    HFRestore hfRestore;
+    HFCut hfCut;
 
     // HF dispersive allpass - creates frequency-dependent phase shift
     // Emulates tape head phase smear ("soft focus" effect on transients)

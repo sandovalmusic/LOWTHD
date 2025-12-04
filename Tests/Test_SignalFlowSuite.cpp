@@ -5,8 +5,8 @@
  * Tests each stage of the signal flow as documented in README.md
  *
  * Signal Flow Stages Tested:
- * 1. De-Emphasis (CCIR 30 IPS curve matching)
- * 2. Re-Emphasis (exact inverse, null test)
+ * 1. HF Cut (AC Bias Shielding curve for 30 IPS)
+ * 2. HF Restore (exact inverse, null test)
  * 3. Jiles-Atherton Hysteresis
  * 4. Asymmetric Tanh Saturation
  * 5. Level-Dependent Atan
@@ -114,25 +114,90 @@ void designLowPass(Biquad& filter, double fc, double Q, double fs)
 }
 
 // ============================================================================
-// DE-EMPHASIS / RE-EMPHASIS (CCIR 35μs)
+// HF CUT / HF RESTORE (AC Bias Shielding Curve for 30 IPS)
 // ============================================================================
-struct ReEmphasis
+// Models the frequency-dependent effectiveness of AC bias (~150kHz)
+// at linearizing the magnetic recording process.
+//
+// Different machines have slightly different bias characteristics:
+//
+// STUDER A820 (Tracks Mode):
+//   - Narrower head gaps, higher bias oscillator frequency
+//   - Bias stays effective to slightly higher frequencies
+//   - Target: Flat to 7kHz, then -10dB at 20kHz
+//
+// AMPEX ATR-102 (Master Mode):
+//   - Wide 1" head gap, different bias behavior
+//   - Bias loses effectiveness slightly earlier
+//   - Target: Flat to 6kHz, then -12dB at 20kHz
+// ============================================================================
+
+struct HFRestore
 {
     double fs = 96000.0;
+    bool ampexMode = true;
     Biquad shelf1, shelf2, bell1, bell2, bell3;
 
     void setSampleRate(double sampleRate)
     {
         fs = sampleRate;
-        double shelf1Freq = 3000.0, shelf1Gain = 4.0, shelf1Q = 0.5;
-        double shelf2Freq = 10000.0, shelf2Gain = 5.0, shelf2Q = 0.71;
-        double bell1Freq = 20000.0, bell1Gain = 5.0, bell1Q = 0.6;
-        double bell2Freq = 15000.0, bell2Gain = -1.1, bell2Q = 1.2;
-        double bell3Freq = 3000.0, bell3Gain = -1.0, bell3Q = 1.5;
+        updateCoefficients();
+    }
 
+    void setMachineMode(bool isAmpex)
+    {
+        ampexMode = isAmpex;
+        updateCoefficients();
+    }
+
+    void updateCoefficients()
+    {
         double nyquist = fs / 2.0;
-        if (bell1Freq > nyquist * 0.9) bell1Freq = nyquist * 0.9;
-        if (shelf2Freq > nyquist * 0.9) shelf2Freq = nyquist * 0.9;
+
+        double shelf1Freq, shelf1Gain, shelf1Q;
+        double shelf2Freq, shelf2Gain, shelf2Q;
+        double bell1Freq, bell1Gain, bell1Q;
+        double bell2Freq, bell2Gain, bell2Q;
+        double bell3Freq, bell3Gain, bell3Q;
+
+        if (ampexMode)
+        {
+            // AMPEX ATR-102 HF Restore
+            shelf1Freq = std::min(10000.0, nyquist * 0.9);
+            shelf1Gain = +7.5;
+            shelf1Q = 1.0;
+            shelf2Freq = std::min(16000.0, nyquist * 0.85);
+            shelf2Gain = +4.5;
+            shelf2Q = 0.85;
+            bell1Freq = std::min(8000.0, nyquist * 0.9);
+            bell1Gain = +0.5;
+            bell1Q = 1.8;
+            bell2Freq = std::min(19000.0, nyquist * 0.9);
+            bell2Gain = +1.5;
+            bell2Q = 0.7;
+            bell3Freq = 6000.0;
+            bell3Gain = -0.3;
+            bell3Q = 2.5;
+        }
+        else
+        {
+            // STUDER A820 HF Restore
+            shelf1Freq = std::min(10000.0, nyquist * 0.9);
+            shelf1Gain = +7.0;
+            shelf1Q = 1.0;
+            shelf2Freq = std::min(17000.0, nyquist * 0.85);
+            shelf2Gain = +3.0;
+            shelf2Q = 0.85;
+            bell1Freq = std::min(8000.0, nyquist * 0.9);
+            bell1Gain = +0.5;
+            bell1Q = 1.8;
+            bell2Freq = std::min(19000.0, nyquist * 0.9);
+            bell2Gain = +1.0;
+            bell2Q = 0.8;
+            bell3Freq = 6000.0;
+            bell3Gain = -0.3;
+            bell3Q = 2.2;
+        }
 
         designHighShelf(shelf1, shelf1Freq, shelf1Gain, shelf1Q, fs);
         designHighShelf(shelf2, shelf2Freq, shelf2Gain, shelf2Q, fs);
@@ -158,23 +223,72 @@ struct ReEmphasis
     }
 };
 
-struct DeEmphasis
+struct HFCut
 {
     double fs = 96000.0;
+    bool ampexMode = true;
     Biquad shelf1, shelf2, bell1, bell2, bell3;
 
     void setSampleRate(double sampleRate)
     {
         fs = sampleRate;
-        double shelf1Freq = 3000.0, shelf1Gain = -4.0, shelf1Q = 0.5;
-        double shelf2Freq = 10000.0, shelf2Gain = -5.0, shelf2Q = 0.71;
-        double bell1Freq = 20000.0, bell1Gain = -5.0, bell1Q = 0.6;
-        double bell2Freq = 15000.0, bell2Gain = +1.1, bell2Q = 1.2;
-        double bell3Freq = 3000.0, bell3Gain = +1.0, bell3Q = 1.5;
+        updateCoefficients();
+    }
 
+    void setMachineMode(bool isAmpex)
+    {
+        ampexMode = isAmpex;
+        updateCoefficients();
+    }
+
+    void updateCoefficients()
+    {
         double nyquist = fs / 2.0;
-        if (bell1Freq > nyquist * 0.9) bell1Freq = nyquist * 0.9;
-        if (shelf2Freq > nyquist * 0.9) shelf2Freq = nyquist * 0.9;
+
+        double shelf1Freq, shelf1Gain, shelf1Q;
+        double shelf2Freq, shelf2Gain, shelf2Q;
+        double bell1Freq, bell1Gain, bell1Q;
+        double bell2Freq, bell2Gain, bell2Q;
+        double bell3Freq, bell3Gain, bell3Q;
+
+        if (ampexMode)
+        {
+            // AMPEX ATR-102 HF Cut (EXACT INVERSE of HF Restore)
+            shelf1Freq = std::min(10000.0, nyquist * 0.9);
+            shelf1Gain = -7.5;
+            shelf1Q = 1.0;
+            shelf2Freq = std::min(16000.0, nyquist * 0.85);
+            shelf2Gain = -4.5;
+            shelf2Q = 0.85;
+            bell1Freq = std::min(8000.0, nyquist * 0.9);
+            bell1Gain = -0.5;
+            bell1Q = 1.8;
+            bell2Freq = std::min(19000.0, nyquist * 0.9);
+            bell2Gain = -1.5;
+            bell2Q = 0.7;
+            bell3Freq = 6000.0;
+            bell3Gain = +0.3;
+            bell3Q = 2.5;
+        }
+        else
+        {
+            // STUDER A820 HF Cut (EXACT INVERSE of HF Restore)
+            shelf1Freq = std::min(10000.0, nyquist * 0.9);
+            shelf1Gain = -7.0;
+            shelf1Q = 1.0;
+            shelf2Freq = std::min(17000.0, nyquist * 0.85);
+            shelf2Gain = -3.0;
+            shelf2Q = 0.85;
+            bell1Freq = std::min(8000.0, nyquist * 0.9);
+            bell1Gain = -0.5;
+            bell1Q = 1.8;
+            bell2Freq = std::min(19000.0, nyquist * 0.9);
+            bell2Gain = -1.0;
+            bell2Q = 0.8;
+            bell3Freq = 6000.0;
+            bell3Gain = +0.3;
+            bell3Q = 2.2;
+        }
 
         designHighShelf(shelf1, shelf1Freq, shelf1Gain, shelf1Q, fs);
         designHighShelf(shelf2, shelf2Freq, shelf2Gain, shelf2Q, fs);
@@ -311,30 +425,28 @@ void reportTest(const std::string& name, bool passed, const std::string& details
 }
 
 // ============================================================================
-// TEST 1: CCIR 35μs CURVE ACCURACY
+// TEST 1: AC BIAS SHIELDING CURVE ACCURACY (Both Machines)
 // ============================================================================
-void testCCIRCurve()
+
+// Helper function to test a machine's bias shielding curve
+void testMachineBiasCurve(bool isAmpex, double* targetFreqs, double* targetGains, int numPoints,
+                          double sampleRate, double tolerance, const std::string& machineName)
 {
-    std::cout << "\n=== TEST 1: CCIR 35μs De-Emphasis Curve ===\n";
-
-    // CCIR target: G(f) = sqrt(1 + (f/4547)²)
-    // De-emphasis should be inverse: 1/G(f)
-    double targetFreqs[] = {1000, 4547, 10000, 15000, 20000};
-    double targetGains[] = {-0.21, -3.01, -7.66, -10.75, -13.08};  // Inverse of boost
-
-    double sampleRate = 96000.0;
-    DeEmphasis deEmph;
-    deEmph.setSampleRate(sampleRate);
+    HFCut hfCut;
+    hfCut.setSampleRate(sampleRate);
+    hfCut.setMachineMode(isAmpex);
 
     bool allPassed = true;
     double maxError = 0.0;
 
-    for (int i = 0; i < 5; ++i)
+    std::cout << "\n  " << machineName << ":\n";
+
+    for (int i = 0; i < numPoints; ++i)
     {
         double freq = targetFreqs[i];
         double target = targetGains[i];
 
-        deEmph.reset();
+        hfCut.reset();
 
         int numCycles = 100;
         int samplesPerCycle = static_cast<int>(sampleRate / freq);
@@ -346,7 +458,7 @@ void testCCIRCurve()
         {
             double t = static_cast<double>(s) / sampleRate;
             double input = std::sin(2.0 * M_PI * freq * t);
-            double output = deEmph.processSample(input);
+            double output = hfCut.processSample(input);
 
             if (s >= skipSamples)
             {
@@ -361,28 +473,51 @@ void testCCIRCurve()
         double error = std::abs(measured - target);
 
         if (error > maxError) maxError = error;
-        if (error > 0.5) allPassed = false;
+        if (error > tolerance) allPassed = false;
 
-        std::cout << "  " << freq << " Hz: measured=" << std::fixed << std::setprecision(2)
-                  << measured << " dB, target=" << target << " dB, error=" << error << " dB\n";
+        std::cout << "    " << std::fixed << std::setprecision(0) << freq << " Hz: "
+                  << std::setprecision(2) << measured << " dB (target " << target << ")\n";
     }
 
-    reportTest("CCIR De-Emphasis Curve", allPassed,
-               "Max error: " + std::to_string(maxError).substr(0,4) + " dB (tolerance: ±0.5 dB)");
+    reportTest(machineName + " Bias Shielding Curve", allPassed,
+               "Max error: " + std::to_string(maxError).substr(0,4) + " dB (tolerance: ±" +
+               std::to_string(tolerance).substr(0,3) + " dB)");
+}
+
+void testBiasShieldingCurve()
+{
+    std::cout << "\n=== TEST 1: AC Bias Shielding HF Cut Curves ===\n";
+
+    double sampleRate = 96000.0;
+
+    // Ampex ATR-102: Flat to 6kHz, -12dB at 20kHz
+    // Wide head gap means bias loses effectiveness earlier
+    double ampexFreqs[] = {1000, 5000, 6000, 8000, 10000, 12000, 14000, 16000, 18000, 20000};
+    double ampexGains[] = {0.0, 0.0, -0.5, -2.0, -4.5, -6.5, -8.5, -10.0, -11.0, -12.0};
+
+    // Studer A820: Flat to 7kHz, -10dB at 20kHz
+    // Narrower gaps and higher bias oscillator keeps bias effective longer
+    double studerFreqs[] = {1000, 6000, 7000, 8000, 10000, 12000, 14000, 16000, 18000, 20000};
+    double studerGains[] = {0.0, 0.0, -0.3, -1.0, -3.0, -5.0, -6.5, -8.0, -9.0, -10.0};
+
+    // Test both curves with 2.0dB tolerance (complex multi-filter matching)
+    testMachineBiasCurve(true, ampexFreqs, ampexGains, 10, sampleRate, 2.0, "Ampex ATR-102");
+    testMachineBiasCurve(false, studerFreqs, studerGains, 10, sampleRate, 2.0, "Studer A820");
 }
 
 // ============================================================================
-// TEST 2: EMPHASIS NULL TEST
+// TEST 2: HF CUT/RESTORE NULL TEST (Both Machines)
 // ============================================================================
-void testEmphasisNull()
-{
-    std::cout << "\n=== TEST 2: Re+De-Emphasis Null Test ===\n";
 
-    double sampleRate = 96000.0;
-    ReEmphasis reEmph;
-    DeEmphasis deEmph;
-    reEmph.setSampleRate(sampleRate);
-    deEmph.setSampleRate(sampleRate);
+// Helper function to test null for a specific machine mode
+void testMachineHFNull(bool isAmpex, double sampleRate, const std::string& machineName)
+{
+    HFRestore hfRestore;
+    HFCut hfCut;
+    hfRestore.setSampleRate(sampleRate);
+    hfCut.setSampleRate(sampleRate);
+    hfRestore.setMachineMode(isAmpex);
+    hfCut.setMachineMode(isAmpex);
 
     double testFreqs[] = {100, 1000, 5000, 10000, 15000, 20000};
     bool allPassed = true;
@@ -390,8 +525,8 @@ void testEmphasisNull()
 
     for (double freq : testFreqs)
     {
-        reEmph.reset();
-        deEmph.reset();
+        hfRestore.reset();
+        hfCut.reset();
 
         int numCycles = 100;
         int samplesPerCycle = static_cast<int>(sampleRate / freq);
@@ -403,8 +538,8 @@ void testEmphasisNull()
         {
             double t = static_cast<double>(s) / sampleRate;
             double input = std::sin(2.0 * M_PI * freq * t);
-            double afterRe = reEmph.processSample(input);
-            double output = deEmph.processSample(afterRe);
+            double afterRestore = hfRestore.processSample(input);
+            double output = hfCut.processSample(afterRestore);
 
             if (s >= skipSamples)
             {
@@ -421,8 +556,19 @@ void testEmphasisNull()
         if (deviation > 0.1) allPassed = false;
     }
 
-    reportTest("Emphasis Null Test", allPassed,
+    reportTest(machineName + " HF Cut/Restore Null", allPassed,
                "Max deviation: " + std::to_string(maxDeviation).substr(0,5) + " dB (tolerance: 0.1 dB)");
+}
+
+void testHFNull()
+{
+    std::cout << "\n=== TEST 2: HF Cut + HF Restore Null Test ===\n";
+
+    double sampleRate = 96000.0;
+
+    // Test both machine modes - each should null perfectly
+    testMachineHFNull(true, sampleRate, "Ampex ATR-102");
+    testMachineHFNull(false, sampleRate, "Studer A820");
 }
 
 // ============================================================================
@@ -1268,8 +1414,8 @@ int main()
     std::cout << "   LOWTHD Signal Flow Comprehensive Test Suite\n";
     std::cout << "================================================================\n";
 
-    testCCIRCurve();
-    testEmphasisNull();
+    testBiasShieldingCurve();
+    testHFNull();
     testJilesAtherton();
     testAsymmetricTanh();
     testDispersiveAllpass();

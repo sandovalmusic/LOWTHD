@@ -13,8 +13,8 @@ HybridTapeProcessor::HybridTapeProcessor()
 void HybridTapeProcessor::setSampleRate(double sampleRate)
 {
     fs = sampleRate;
-    reEmphasis.setSampleRate(sampleRate);
-    deEmphasis.setSampleRate(sampleRate);
+    hfRestore.setSampleRate(sampleRate);
+    hfCut.setSampleRate(sampleRate);
     jaCore.setSampleRate(sampleRate);
     machineEQ.setSampleRate(sampleRate);
 
@@ -55,8 +55,8 @@ void HybridTapeProcessor::reset()
 {
     dcBlocker1.reset();
     dcBlocker2.reset();
-    reEmphasis.reset();
-    deEmphasis.reset();
+    hfRestore.reset();
+    hfCut.reset();
     jaCore.reset();
     machineEQ.reset();
 
@@ -95,6 +95,7 @@ void HybridTapeProcessor::updateCachedValues()
 
     if (isAmpexMode) {
         // AMPEX ATR-102 (MASTER MODE)
+        // Target: MOL @ +12dB (3% THD), E/O ratio 0.503 (odd-dominant)
         jaParams.M_s = 1.0;
         jaParams.a = 50.0;
         jaParams.k = 0.005;
@@ -104,14 +105,15 @@ void HybridTapeProcessor::updateCachedValues()
         jaInputScale = 1.0;
         jaOutputScale = 150.0;
 
-        tanhDrive = 0.095;
-        tanhAsymmetry = 1.08;
+        // Tuned for MOL @ +12dB with E/O ~0.5
+        tanhDrive = 0.175;         // Tuned for ~3% THD at +12dB
+        tanhAsymmetry = 1.19;      // Tuned for E/O = 0.503
         tanhBias = tanhAsymmetry - 1.0;
         tanhDcOffset = std::tanh(tanhDrive * tanhBias);
         double tanhNorm = tanhDrive * (1.0 - tanhDcOffset * tanhDcOffset);
         tanhNormFactor = (tanhNorm > 0.001) ? (1.0 / tanhNorm) : 1.0;
 
-        jaBlendMax = 1.00;
+        jaBlendMax = 1.00;         // Full J-A blend
         jaBlendThreshold = 0.77;
         jaBlendWidth = 1.5;
 
@@ -125,6 +127,7 @@ void HybridTapeProcessor::updateCachedValues()
         dispersiveCornerFreq = 4500.0;
     } else {
         // STUDER A820 (TRACKS MODE)
+        // Target: MOL @ +9dB (3% THD), E/O ratio 1.122 (even-dominant)
         jaParams.M_s = 1.0;
         jaParams.a = 35.0;
         jaParams.k = 0.01;
@@ -134,14 +137,16 @@ void HybridTapeProcessor::updateCachedValues()
         jaInputScale = 1.0;
         jaOutputScale = 105.0;
 
-        tanhDrive = 0.14;
-        tanhAsymmetry = 1.18;
+        // Tuned for MOL @ +9dB with E/O ~1.12
+        // Strategy: tanhAsymmetry for E/O, atanAsymmetry for knee + extra H2
+        tanhDrive = 0.150;         // Tuned for ~3% THD at +9dB
+        tanhAsymmetry = 1.41;      // Tuned for E/O = 1.122
         tanhBias = tanhAsymmetry - 1.0;
         tanhDcOffset = std::tanh(tanhDrive * tanhBias);
         double tanhNorm = tanhDrive * (1.0 - tanhDcOffset * tanhDcOffset);
         tanhNormFactor = (tanhNorm > 0.001) ? (1.0 / tanhNorm) : 1.0;
 
-        jaBlendMax = 1.00;
+        jaBlendMax = 1.00;         // Full J-A blend
         jaBlendThreshold = 0.60;
         jaBlendWidth = 1.2;
 
@@ -149,7 +154,7 @@ void HybridTapeProcessor::updateCachedValues()
         atanMixMax = 0.72;
         atanThreshold = 0.4;
         atanWidth = 2.5;
-        atanAsymmetry = 1.25;
+        atanAsymmetry = 1.40;      // Increased for Studer's even-harmonic character (E/O 1.122)
         useAsymmetricAtan = true;
         atanBias = atanAsymmetry - 1.0;
         atanDcOffset = std::atan(atanDrive * atanBias);
@@ -172,6 +177,10 @@ void HybridTapeProcessor::updateCachedValues()
 
     // Update machine EQ
     machineEQ.setMachine(isAmpexMode ? MachineEQ::Machine::Ampex : MachineEQ::Machine::Studer);
+
+    // Update AC bias shielding curves for selected machine
+    hfRestore.setMachineMode(isAmpexMode);
+    hfCut.setMachineMode(isAmpexMode);
 }
 
 double HybridTapeProcessor::processSample(double input)
@@ -190,14 +199,14 @@ double HybridTapeProcessor::processSample(double input)
     double blendRatio = std::clamp((jaEnvelope - jaBlendThreshold) / jaBlendWidth, 0.0, 1.0);
     double jaBlend = jaBlendMax * blendRatio * blendRatio * (3.0 - 2.0 * blendRatio);
 
-    // De-emphasis (cut highs before saturation)
-    double deEmphasized = deEmphasis.processSample(gained);
+    // AC bias shielding (cut highs before saturation)
+    double hfCutSignal = hfCut.processSample(gained);
 
     // J-A path (physics-based hysteresis)
-    double jaPath = jaCore.process(deEmphasized * jaInputScale) * jaOutputScale;
+    double jaPath = jaCore.process(hfCutSignal * jaInputScale) * jaOutputScale;
 
     // Tanh path (asymmetric saturation)
-    double tanhOut = asymmetricTanh(deEmphasized);
+    double tanhOut = asymmetricTanh(hfCutSignal);
 
     // Level-dependent atan in series
     double atanBlendRatio = std::clamp((jaEnvelope - atanThreshold) / atanWidth, 0.0, 1.0);
@@ -208,8 +217,8 @@ double HybridTapeProcessor::processSample(double input)
     // Parallel blend
     double blended = jaPath * jaBlend + tanhPath * (1.0 - jaBlend);
 
-    // Re-emphasis (restore highs)
-    double output = reEmphasis.processSample(blended);
+    // HF restore (restore highs after saturation)
+    double output = hfRestore.processSample(blended);
 
     // Machine-specific EQ (always on)
     output = machineEQ.processSample(output);
