@@ -6,26 +6,24 @@ namespace TapeHysteresis
 
 // AC Bias Shielding Curve for 30 IPS Tape
 // =======================================
-// Models the frequency-dependent effectiveness of AC bias (~150kHz)
+// Models the frequency-dependent effectiveness of AC bias
 // at linearizing the magnetic recording process.
 //
-// At 30 IPS with 150kHz bias:
-// - Low frequencies: Bias fully effective, linear response
-// - Mid frequencies: Bias still effective
-// - High frequencies: Bias wavelength approaches audio wavelength,
-//                     effectiveness degrades, saturation increases
+// BIAS FREQUENCIES (from research):
+//   Ampex ATR-102: 432 kHz (exceptionally high - best HF performance)
+//   Studer A820:   153.6 kHz (typical professional standard)
 //
-// Target curve (HFCut, applied BEFORE saturation):
-//   20Hz-6kHz:   0dB   (flat - bias fully effective)
-//   8kHz:       -1dB   (bias starting to weaken)
-//   10kHz:      -2.5dB (noticeable degradation)
-//   12kHz:      -5dB   (significant)
-//   14kHz:      -7.5dB (bias struggling)
-//   16kHz:      -9.5dB
-//   18kHz:      -11dB
-//   20kHz:      -12dB  (bias mostly ineffective)
+// Rule of thumb: bias should be 5× highest audio frequency
+//   ATR-102: 432/5 = 86 kHz clean range (far beyond 20kHz)
+//   A820:    153/5 = 30 kHz clean range (still good, but less margin)
 //
-// This models actual bias physics.
+// Higher bias frequency = less HF degradation from self-erasure
+// Therefore: ATR-102 has FLATTER HF response, A820 rolls off earlier
+//
+// Target curves (HFCut, applied BEFORE saturation):
+//   ATR-102: Flat to 8kHz, gentle roll to -8dB at 20kHz
+//   A820:    Flat to 6kHz, steeper roll to -12dB at 20kHz
+//
 // The curve nulls with HFRestore, so frequencies that get
 // cut here experience less saturation (protected by bias).
 
@@ -159,14 +157,50 @@ void HFRestore::updateCoefficients()
     {
         // AMPEX ATR-102 HF Restore
         // -------------------------
-        // Wide 1" head gap - bias loses effectiveness earlier
-        // Target: Flat to 6kHz, smooth rise to +12dB at 20kHz
+        // 432 kHz bias frequency - exceptionally high
+        // Best HF performance of any analog tape machine
+        // Target: Flat to 8kHz, gentle rise to +8dB at 20kHz
         //
-        // The wider head gap means longer wavelengths at the gap,
-        // so bias starts struggling at lower frequencies.
+        // The very high bias frequency means minimal self-erasure
+        // and excellent HF linearity - less correction needed.
 
-        // Shelf 1: Main HF restoration starting at 10kHz (pushed higher)
-        shelf1Freq = std::min(10000.0, nyquist * 0.9);
+        // Shelf 1: Main HF restoration starting at 12kHz
+        shelf1Freq = std::min(12000.0, nyquist * 0.9);
+        shelf1Gain = +5.5;
+        shelf1Q = 1.0;
+
+        // Shelf 2: Top octave at 18kHz
+        shelf2Freq = std::min(18000.0, nyquist * 0.85);
+        shelf2Gain = +2.5;
+        shelf2Q = 0.85;
+
+        // Bell 1: Gentle transition at 10kHz
+        bell1Freq = std::min(10000.0, nyquist * 0.9);
+        bell1Gain = +0.3;
+        bell1Q = 1.8;
+
+        // Bell 2: Top end at 19kHz
+        bell2Freq = std::min(19000.0, nyquist * 0.9);
+        bell2Gain = +0.8;
+        bell2Q = 0.8;
+
+        // Bell 3: Keep 8kHz flat
+        bell3Freq = 8000.0;
+        bell3Gain = -0.2;
+        bell3Q = 2.5;
+    }
+    else
+    {
+        // STUDER A820 HF Restore
+        // -----------------------
+        // 153.6 kHz bias frequency - typical professional standard
+        // Target: Flat to 6kHz, steeper rise to +12dB at 20kHz
+        //
+        // Lower bias frequency means more self-erasure at HF,
+        // requiring more aggressive HF restoration.
+
+        // Shelf 1: Main HF restoration starting at 9kHz
+        shelf1Freq = std::min(9000.0, nyquist * 0.9);
         shelf1Gain = +7.5;
         shelf1Q = 1.0;
 
@@ -175,8 +209,8 @@ void HFRestore::updateCoefficients()
         shelf2Gain = +4.5;
         shelf2Q = 0.85;
 
-        // Bell 1: Gentle transition at 8kHz
-        bell1Freq = std::min(8000.0, nyquist * 0.9);
+        // Bell 1: Transition at 7kHz
+        bell1Freq = std::min(7000.0, nyquist * 0.9);
         bell1Gain = +0.5;
         bell1Q = 1.8;
 
@@ -184,41 +218,6 @@ void HFRestore::updateCoefficients()
         bell2Freq = std::min(19000.0, nyquist * 0.9);
         bell2Gain = +1.5;
         bell2Q = 0.7;
-
-        // Bell 3: Compensate spillover at 6kHz to keep it flat
-        bell3Freq = 6000.0;
-        bell3Gain = -0.3;
-        bell3Q = 2.5;
-    }
-    else
-    {
-        // STUDER A820 HF Restore
-        // -----------------------
-        // Narrower head gaps on multitrack - bias effective longer
-        // Target: Flat to 7kHz, smooth rise to +10dB at 20kHz
-        //
-        // The narrower gaps and higher bias oscillator frequency
-        // mean bias stays effective to slightly higher frequencies.
-
-        // Shelf 1: Main HF restoration starting at 10kHz
-        shelf1Freq = std::min(10000.0, nyquist * 0.9);
-        shelf1Gain = +7.0;
-        shelf1Q = 1.0;
-
-        // Shelf 2: Top octave at 17kHz
-        shelf2Freq = std::min(17000.0, nyquist * 0.85);
-        shelf2Gain = +3.0;
-        shelf2Q = 0.85;
-
-        // Bell 1: Gentle transition at 8kHz
-        bell1Freq = std::min(8000.0, nyquist * 0.9);
-        bell1Gain = +0.5;
-        bell1Q = 1.8;
-
-        // Bell 2: Top end at 19kHz
-        bell2Freq = std::min(19000.0, nyquist * 0.9);
-        bell2Gain = +1.0;
-        bell2Q = 0.8;
 
         // Bell 3: Keep 6kHz flat
         bell3Freq = 6000.0;
@@ -291,9 +290,37 @@ void HFCut::updateCoefficients()
     {
         // AMPEX ATR-102 HF Cut (EXACT INVERSE of HF Restore)
         // ---------------------------------------------------------
+        // 432 kHz bias - minimal HF cut needed
+        // Target: Flat to 8kHz, -8dB at 20kHz
+
+        shelf1Freq = std::min(12000.0, nyquist * 0.9);
+        shelf1Gain = -5.5;
+        shelf1Q = 1.0;
+
+        shelf2Freq = std::min(18000.0, nyquist * 0.85);
+        shelf2Gain = -2.5;
+        shelf2Q = 0.85;
+
+        bell1Freq = std::min(10000.0, nyquist * 0.9);
+        bell1Gain = -0.3;
+        bell1Q = 1.8;
+
+        bell2Freq = std::min(19000.0, nyquist * 0.9);
+        bell2Gain = -0.8;
+        bell2Q = 0.8;
+
+        bell3Freq = 8000.0;
+        bell3Gain = +0.2;
+        bell3Q = 2.5;
+    }
+    else
+    {
+        // STUDER A820 HF Cut (EXACT INVERSE of HF Restore)
+        // -------------------------------------------------------
+        // 153.6 kHz bias - more HF cut needed
         // Target: Flat to 6kHz, -12dB at 20kHz
 
-        shelf1Freq = std::min(10000.0, nyquist * 0.9);
+        shelf1Freq = std::min(9000.0, nyquist * 0.9);
         shelf1Gain = -7.5;
         shelf1Q = 1.0;
 
@@ -301,39 +328,13 @@ void HFCut::updateCoefficients()
         shelf2Gain = -4.5;
         shelf2Q = 0.85;
 
-        bell1Freq = std::min(8000.0, nyquist * 0.9);
+        bell1Freq = std::min(7000.0, nyquist * 0.9);
         bell1Gain = -0.5;
         bell1Q = 1.8;
 
         bell2Freq = std::min(19000.0, nyquist * 0.9);
         bell2Gain = -1.5;
         bell2Q = 0.7;
-
-        bell3Freq = 6000.0;
-        bell3Gain = +0.3;
-        bell3Q = 2.5;
-    }
-    else
-    {
-        // STUDER A820 HF Cut (EXACT INVERSE of HF Restore)
-        // -------------------------------------------------------
-        // Target: Flat to 7kHz, -10dB at 20kHz
-
-        shelf1Freq = std::min(10000.0, nyquist * 0.9);
-        shelf1Gain = -7.0;
-        shelf1Q = 1.0;
-
-        shelf2Freq = std::min(17000.0, nyquist * 0.85);
-        shelf2Gain = -3.0;
-        shelf2Q = 0.85;
-
-        bell1Freq = std::min(8000.0, nyquist * 0.9);
-        bell1Gain = -0.5;
-        bell1Q = 1.8;
-
-        bell2Freq = std::min(19000.0, nyquist * 0.9);
-        bell2Gain = -1.0;
-        bell2Q = 0.8;
 
         bell3Freq = 6000.0;
         bell3Gain = +0.3;

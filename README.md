@@ -39,12 +39,14 @@ LOWTHD models the tape and heads, not the amplifiers that were designed to stay 
 
 ### AC Bias Shielding
 
-Real tape uses ~150kHz AC bias to linearize magnetic response. As audio wavelengths approach bias wavelength, this protection breaks down. We simulate this with de-emphasis before saturation, re-emphasis after:
+Real tape uses AC bias to linearize magnetic response. Higher bias frequency = better HF preservation (less self-erasure). We simulate this with de-emphasis before saturation, re-emphasis after:
 
-| Machine | Flat Through | @ 20kHz |
-|---------|-------------|---------|
-| **Ampex** | 6kHz | -12dB |
-| **Studer** | 7kHz | -10dB |
+| Machine | Bias Frequency | Flat Through | @ 20kHz |
+|---------|---------------|-------------|---------|
+| **Ampex ATR-102** | 432 kHz | 8kHz | -8dB |
+| **Studer A820** | 153.6 kHz | 6kHz | -12dB |
+
+The ATR-102's exceptionally high 432 kHz bias (vs typical 150 kHz) was a major engineering achievement—it's why the machine was known for pristine HF response. The Studer uses standard professional bias frequency.
 
 Result: HF content experiences less saturation (protected by simulated bias), while lows/mids get full tape character.
 
