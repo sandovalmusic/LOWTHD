@@ -404,7 +404,7 @@ Tuned for realistic MOL (Maximum Output Level) and E/O (Even/Odd harmonic ratio)
 
 An unintended benefit of this design: the 2x minimum-phase IIR oversampling adds approximately 7 samples—less than 0.2ms at 44.1kHz.
 
-Most physics-based tape simulations require significant oversampling to handle nonlinear hysteresis without aliasing. ChowTape, the other major Jiles-Atherton implementation, recommends "as much oversampling as your CPU will allow" and offers up to 16x. This produces excellent results but introduces latency unsuitable for real-time monitoring.
+Most physics-based tape simulations require significant oversampling (4x, 8x, or higher) to handle nonlinear hysteresis without aliasing, which introduces latency unsuitable for real-time monitoring.
 
 LOWTHD's subtle saturation keeps nonlinear content low enough that 2x suffices. The hysteresis is still physically accurate—it simply operates in a regime where extreme oversampling isn't necessary.
 
