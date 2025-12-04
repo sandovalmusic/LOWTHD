@@ -336,6 +336,189 @@ private:
 
     HeadBumpModulator headBumpModulator;
 
+    // Channel Tolerance EQ - models subtle frequency response variations
+    // between tape heads/channels due to manufacturing tolerances
+    // Based on Studer A820 specs: ±1dB from 60Hz-20kHz, ±2dB at extremes
+    // We use conservative values: ±0.3dB low shelf, ±0.4dB high shelf
+    struct ToleranceEQ
+    {
+        // Biquad shelving filters
+        struct Biquad
+        {
+            float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f;
+            float a1 = 0.0f, a2 = 0.0f;
+            float z1 = 0.0f, z2 = 0.0f;
+
+            void reset() { z1 = z2 = 0.0f; }
+
+            float process(float input)
+            {
+                float output = b0 * input + z1;
+                z1 = b1 * input - a1 * output + z2;
+                z2 = b2 * input - a2 * output;
+                return output;
+            }
+
+            void setLowShelf(float fc, float gainDB, float Q, float sampleRate)
+            {
+                float A = std::pow(10.0f, gainDB / 40.0f);
+                float omega = 2.0f * 3.14159265f * fc / sampleRate;
+                float cosOmega = std::cos(omega);
+                float sinOmega = std::sin(omega);
+                float alpha = sinOmega / (2.0f * Q);
+
+                float a0 = (A + 1.0f) + (A - 1.0f) * cosOmega + 2.0f * std::sqrt(A) * alpha;
+                b0 = (A * ((A + 1.0f) - (A - 1.0f) * cosOmega + 2.0f * std::sqrt(A) * alpha)) / a0;
+                b1 = (2.0f * A * ((A - 1.0f) - (A + 1.0f) * cosOmega)) / a0;
+                b2 = (A * ((A + 1.0f) - (A - 1.0f) * cosOmega - 2.0f * std::sqrt(A) * alpha)) / a0;
+                a1 = (-2.0f * ((A - 1.0f) + (A + 1.0f) * cosOmega)) / a0;
+                a2 = ((A + 1.0f) + (A - 1.0f) * cosOmega - 2.0f * std::sqrt(A) * alpha) / a0;
+            }
+
+            void setHighShelf(float fc, float gainDB, float Q, float sampleRate)
+            {
+                float A = std::pow(10.0f, gainDB / 40.0f);
+                float omega = 2.0f * 3.14159265f * fc / sampleRate;
+                float cosOmega = std::cos(omega);
+                float sinOmega = std::sin(omega);
+                float alpha = sinOmega / (2.0f * Q);
+
+                float a0 = (A + 1.0f) - (A - 1.0f) * cosOmega + 2.0f * std::sqrt(A) * alpha;
+                b0 = (A * ((A + 1.0f) + (A - 1.0f) * cosOmega + 2.0f * std::sqrt(A) * alpha)) / a0;
+                b1 = (-2.0f * A * ((A - 1.0f) + (A + 1.0f) * cosOmega)) / a0;
+                b2 = (A * ((A + 1.0f) + (A - 1.0f) * cosOmega - 2.0f * std::sqrt(A) * alpha)) / a0;
+                a1 = (2.0f * ((A - 1.0f) - (A + 1.0f) * cosOmega)) / a0;
+                a2 = ((A + 1.0f) - (A - 1.0f) * cosOmega - 2.0f * std::sqrt(A) * alpha) / a0;
+            }
+        };
+
+        // Per-channel filters (L and R can have different tolerances)
+        Biquad lowShelfL, highShelfL;
+        Biquad lowShelfR, highShelfR;
+
+        // Randomized parameters (set once at construction)
+        float lowFreqL = 70.0f, lowFreqR = 70.0f;     // ~70Hz ±10Hz
+        float highFreqL = 15000.0f, highFreqR = 15000.0f;  // ~15kHz ±1kHz
+        float lowGainL = 0.0f, lowGainR = 0.0f;       // ±0.3dB
+        float highGainL = 0.0f, highGainR = 0.0f;     // ±0.4dB
+
+        float sampleRate = 48000.0f;
+        bool isStereo = true;  // If false, L and R use same random values
+
+        // Machine type for tolerance differences
+        bool isAmpex = true;
+
+        // Constructor randomizes tolerances per instance
+        // Called once at plugin instantiation - generates random offsets
+        // Actual filter coefficients set in prepare() based on machine type
+        ToleranceEQ()
+        {
+            std::random_device rd;
+            std::mt19937 gen(rd());
+
+            // Generate normalized random values (-1 to +1)
+            // These get scaled by machine-specific tolerances in prepare()
+            std::uniform_real_distribution<float> normalizedDist(-1.0f, 1.0f);
+
+            // Store normalized random values for later scaling
+            lowFreqL = normalizedDist(gen);
+            lowGainL = normalizedDist(gen);
+            highFreqL = normalizedDist(gen);
+            highGainL = normalizedDist(gen);
+
+            lowFreqR = normalizedDist(gen);
+            lowGainR = normalizedDist(gen);
+            highFreqR = normalizedDist(gen);
+            highGainR = normalizedDist(gen);
+        }
+
+        void prepare(float sr, bool stereoMode, bool ampexMode)
+        {
+            sampleRate = sr;
+            isStereo = stereoMode;
+            isAmpex = ampexMode;
+
+            // Machine-specific tolerances for freshly calibrated machines
+            // Ampex ATR-102: Precision 2-track mastering deck, tighter tolerances
+            // Studer A820: Multitrack, slightly more channel variation
+            float lowFreqCenter, lowFreqRange, lowGainRange;
+            float highFreqCenter, highFreqRange, highGainRange;
+
+            if (isAmpex)
+            {
+                // Ampex ATR-102: Freshly calibrated mastering deck
+                // Tighter tolerances - this was THE precision machine
+                lowFreqCenter = 60.0f;      // Head bump region
+                lowFreqRange = 4.0f;        // ±4Hz variation
+                lowGainRange = 0.10f;       // ±0.10dB (very tight)
+                highFreqCenter = 16000.0f;  // HF region
+                highFreqRange = 400.0f;     // ±400Hz variation
+                highGainRange = 0.12f;      // ±0.12dB (very tight)
+            }
+            else
+            {
+                // Studer A820: Freshly calibrated multitrack
+                // Slightly looser tolerances across multiple channels
+                lowFreqCenter = 75.0f;      // Head bump region (lower on multitrack)
+                lowFreqRange = 6.0f;        // ±6Hz variation
+                lowGainRange = 0.15f;       // ±0.15dB
+                highFreqCenter = 15000.0f;  // HF region
+                highFreqRange = 500.0f;     // ±500Hz variation
+                highGainRange = 0.18f;      // ±0.18dB
+            }
+
+            // Scale the normalized random values (-1 to +1) to actual tolerances
+            float actualLowFreqL = lowFreqCenter + lowFreqL * lowFreqRange;
+            float actualLowGainL = lowGainL * lowGainRange;
+            float actualHighFreqL = highFreqCenter + highFreqL * highFreqRange;
+            float actualHighGainL = highGainL * highGainRange;
+
+            float actualLowFreqR = lowFreqCenter + lowFreqR * lowFreqRange;
+            float actualLowGainR = lowGainR * lowGainRange;
+            float actualHighFreqR = highFreqCenter + highFreqR * highFreqRange;
+            float actualHighGainR = highGainR * highGainRange;
+
+            float Q = 0.707f;  // Butterworth Q for smooth shelves
+
+            if (isStereo)
+            {
+                // Stereo: L and R have independent random tolerances
+                lowShelfL.setLowShelf(actualLowFreqL, actualLowGainL, Q, sampleRate);
+                highShelfL.setHighShelf(actualHighFreqL, actualHighGainL, Q, sampleRate);
+                lowShelfR.setLowShelf(actualLowFreqR, actualLowGainR, Q, sampleRate);
+                highShelfR.setHighShelf(actualHighFreqR, actualHighGainR, Q, sampleRate);
+            }
+            else
+            {
+                // Mono: L and R use same tolerance (L values)
+                lowShelfL.setLowShelf(actualLowFreqL, actualLowGainL, Q, sampleRate);
+                highShelfL.setHighShelf(actualHighFreqL, actualHighGainL, Q, sampleRate);
+                lowShelfR.setLowShelf(actualLowFreqL, actualLowGainL, Q, sampleRate);
+                highShelfR.setHighShelf(actualHighFreqL, actualHighGainL, Q, sampleRate);
+            }
+
+            reset();
+        }
+
+        void reset()
+        {
+            lowShelfL.reset();
+            highShelfL.reset();
+            lowShelfR.reset();
+            highShelfR.reset();
+        }
+
+        void processSample(float& left, float& right)
+        {
+            left = lowShelfL.process(left);
+            left = highShelfL.process(left);
+            right = lowShelfR.process(right);
+            right = highShelfR.process(right);
+        }
+    };
+
+    ToleranceEQ toleranceEQ;
+
     // Auto-gain: Track the last input trim to detect changes
     float lastInputTrimValue = 0.5f;
     bool isUpdatingOutputTrim = false;  // Prevent listener recursion

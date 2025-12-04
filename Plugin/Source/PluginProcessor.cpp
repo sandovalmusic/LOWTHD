@@ -176,6 +176,12 @@ void LowTHDTapeSimulatorAudioProcessor::prepareToPlay (double sampleRate, int sa
 
     // Initialize head bump modulator (default to Ampex, will update in processBlock)
     headBumpModulator.prepare (static_cast<float> (sampleRate), true);
+
+    // Initialize tolerance EQ (randomized per instance)
+    // Stereo mode = different tolerances per channel, Mono = same for both
+    // Default to Ampex mode, will update in processBlock if needed
+    bool isStereo = (getTotalNumInputChannels() >= 2);
+    toleranceEQ.prepare (static_cast<float> (sampleRate), isStereo, true);
 }
 
 void LowTHDTapeSimulatorAudioProcessor::releaseResources()
@@ -186,6 +192,7 @@ void LowTHDTapeSimulatorAudioProcessor::releaseResources()
     oversampler->reset();
     crosstalkFilter.reset();
     headBumpModulator.reset();
+    toleranceEQ.reset();
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -301,11 +308,14 @@ void LowTHDTapeSimulatorAudioProcessor::processBlock (juce::AudioBuffer<float>& 
     // Simulates wow-induced amplitude variation in the head bump frequency region
     // Updates LFO once per block (efficient), applies sample-by-sample
     {
-        // Update modulator settings if machine mode changed
+        // Update modulator and tolerance EQ settings if machine mode changed
         static int lastMachineMode = -1;
         if (machineMode != lastMachineMode)
         {
-            headBumpModulator.prepare (static_cast<float> (getSampleRate()), machineMode == 0);
+            bool isAmpex = (machineMode == 0);
+            headBumpModulator.prepare (static_cast<float> (getSampleRate()), isAmpex);
+            toleranceEQ.prepare (static_cast<float> (getSampleRate()),
+                                 totalNumInputChannels >= 2, isAmpex);
             lastMachineMode = machineMode;
         }
 
@@ -331,6 +341,35 @@ void LowTHDTapeSimulatorAudioProcessor::processBlock (juce::AudioBuffer<float>& 
             for (int sample = 0; sample < numSamples; ++sample)
             {
                 headBumpModulator.processSample (monoData[sample], dummy, modGain);
+            }
+        }
+    }
+
+    // === TOLERANCE EQ: Both modes, machine-specific ===
+    // Models subtle channel-to-channel frequency response variations
+    // due to tape head manufacturing tolerances on freshly calibrated machines
+    // Ampex ATR-102: ±0.10dB low (60Hz), ±0.12dB high (16kHz) - precision mastering
+    // Studer A820:   ±0.15dB low (75Hz), ±0.18dB high (15kHz) - multitrack variation
+    // Stereo instances get different L/R tolerances; mono instances use same for both
+    {
+        if (totalNumInputChannels >= 2)
+        {
+            float* leftData = buffer.getWritePointer (0);
+            float* rightData = buffer.getWritePointer (1);
+
+            for (int sample = 0; sample < numSamples; ++sample)
+            {
+                toleranceEQ.processSample (leftData[sample], rightData[sample]);
+            }
+        }
+        else if (totalNumInputChannels == 1)
+        {
+            float* monoData = buffer.getWritePointer (0);
+            float dummy = 0.0f;
+
+            for (int sample = 0; sample < numSamples; ++sample)
+            {
+                toleranceEQ.processSample (monoData[sample], dummy);
             }
         }
     }

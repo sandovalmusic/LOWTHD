@@ -94,6 +94,36 @@ We emulate this with a 4-stage dispersive allpass cascade:
 
 Creates authentic tape stereo width without phase cancellation. The Studer crosstalk adds subtle cohesion typical of multitrack machines.
 
+### Head Bump Modulation (Wow)
+
+Real tape transport mechanisms exhibit subtle speed variations called "wow"—low-frequency oscillations in the capstan motor and tape tension. This causes amplitude modulation in the head bump frequency region as the effective tape-to-head speed varies.
+
+LOWTHD models this with three incommensurate LFO frequencies (0.31Hz, 0.63Hz, 1.07Hz) combined for organic, non-repeating modulation:
+
+| Mode | Bump Center | Modulation Depth |
+|------|-------------|------------------|
+| **Ampex** | 40Hz | ±0.08dB |
+| **Studer** | 75Hz | ±0.12dB |
+
+The LFO phases are randomized per plugin instance, so multiple instances won't pulse in sync. This adds subtle, realistic movement to the low end without obvious pumping.
+
+### Channel Tolerance Variation
+
+Professional tape machines were precision instruments, but manufacturing tolerances meant no two channels measured identically. The Studer A820 specified ±1dB from 60Hz-20kHz and ±2dB at the frequency extremes.
+
+LOWTHD models this with randomized shelving EQ at the output stage, using machine-specific tolerances representing freshly calibrated machines ready for a session:
+
+| Machine | Low Shelf | High Shelf |
+|---------|-----------|------------|
+| **Ampex ATR-102** | 60Hz ±4Hz, ±0.10dB | 16kHz ±400Hz, ±0.12dB |
+| **Studer A820** | 75Hz ±6Hz, ±0.15dB | 15kHz ±500Hz, ±0.18dB |
+
+The ATR-102 has tighter tolerances—it was THE precision mastering deck. The A820 multitrack shows slightly more channel-to-channel variation, even when freshly aligned.
+
+Each plugin instance gets unique random values at instantiation. Stereo instances have independent L/R tolerances; mono instances use the same tolerance for both channels.
+
+This creates subtle track-to-track frequency response differences when using multiple plugin instances—just like running audio through different channels of a real multitrack machine.
+
 ### Auto-Gain Compensation
 
 When Drive increases, Volume automatically decreases to maintain constant monitoring level.
@@ -260,11 +290,20 @@ INPUT (from DAW)
 │     └─ bumpSignal = bandpass(input)                                        │
 │     └─ output = input + bumpSignal * (modGain - 1.0)                       │
 │                                                                             │
-│ 17. OUTPUT TRIM (Volume)                                                   │
+│ 17. TOLERANCE EQ (Machine-specific, randomized per instance)               │
+│     └─ Models channel-to-channel frequency response variations             │
+│     └─ Freshly calibrated machine tolerances:                              │
+│     │  └─ Ampex: 60Hz ±4Hz ±0.10dB, 16kHz ±400Hz ±0.12dB                  │
+│     │  └─ Studer: 75Hz ±6Hz ±0.15dB, 15kHz ±500Hz ±0.18dB                 │
+│     └─ Stereo: L and R get independent random values                       │
+│     └─ Mono: Same tolerance applied to both channels                       │
+│     └─ Randomized once per plugin instantiation (unique per instance)      │
+│                                                                             │
+│ 18. OUTPUT TRIM (Volume)                                                   │
 │     └─ Multiply by outputTrimValue (0.1x to 3.0x, default 1.0x)           │
 │     └─ Auto-linked to input trim for gain compensation                      │
 │                                                                             │
-│ 18. FINAL MAKEUP GAIN                                                      │
+│ 19. FINAL MAKEUP GAIN                                                      │
 │     └─ Fixed +6dB (2.0x) to compensate for default -6dB input trim         │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
