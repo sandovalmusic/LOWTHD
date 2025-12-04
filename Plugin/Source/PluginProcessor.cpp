@@ -290,7 +290,7 @@ void LowTHDTapeSimulatorAudioProcessor::processBlock (juce::AudioBuffer<float>& 
 
     // === CROSSTALK: Studer mode only ===
     // Simulates adjacent track bleed on 24-track tape machines
-    // Adds bandpassed mono signal at -50dB to both channels
+    // Adds bandpassed mono signal at -55dB to both channels
     if (machineMode == 1 && totalNumInputChannels >= 2)  // Studer mode, stereo only
     {
         float* leftData = buffer.getWritePointer (0);

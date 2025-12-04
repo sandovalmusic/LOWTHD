@@ -80,7 +80,7 @@ Head gap geometry creates frequency-dependent phase shifts. Corner frequencies b
 ### Stereo Processing
 
 - **Azimuth delay**: Right channel delayed (Ampex: 8μs, Studer: 12μs)
-- **Crosstalk** (Studer only): -50dB mono bleed simulates adjacent track coupling
+- **Crosstalk** (Studer only): -55dB mono bleed simulates adjacent track coupling
 
 ### Analog Variations
 

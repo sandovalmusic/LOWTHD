@@ -1270,7 +1270,7 @@ struct CrosstalkFilter
 
     Biquad highpass;
     Biquad lowpass;
-    double gain = 0.00316;  // -50dB (Studer A820 spec)
+    double gain = 0.00178;  // -55dB (Studer A820 spec: >55dB stereo crosstalk)
 
     void prepare(double sampleRate)
     {
@@ -1301,7 +1301,7 @@ void testCrosstalk()
     CrosstalkFilter xtalk;
     xtalk.prepare(sampleRate);
 
-    // Test 1: Verify -50dB level at 1kHz (in passband)
+    // Test 1: Verify -55dB level at 1kHz (in passband)
     double testFreq = 1000.0;
     int numCycles = 100;
     int samplesPerCycle = static_cast<int>(sampleRate / testFreq);
@@ -1329,10 +1329,10 @@ void testCrosstalk()
 
     double levelDB = 20.0 * std::log10(outputRMS / inputRMS);
 
-    std::cout << "  1kHz level: " << std::fixed << std::setprecision(1) << levelDB << " dB (target: -50dB)\n";
+    std::cout << "  1kHz level: " << std::fixed << std::setprecision(1) << levelDB << " dB (target: -55dB)\n";
 
-    reportTest("Crosstalk Level @ 1kHz", std::abs(levelDB - (-50.0)) < 1.0,
-               std::to_string(levelDB).substr(0,5) + " dB (tolerance: ±1dB from -50dB)");
+    reportTest("Crosstalk Level @ 1kHz", std::abs(levelDB - (-55.0)) < 1.0,
+               std::to_string(levelDB).substr(0,5) + " dB (tolerance: ±1dB from -55dB)");
 
     // Test 2: Verify highpass at 100Hz (should attenuate 50Hz)
     xtalk.reset();

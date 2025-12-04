@@ -149,7 +149,7 @@ private:
 
         Biquad highpass;  // ~100Hz HP
         Biquad lowpass;   // ~8kHz LP
-        float gain = 0.00316f;  // -50dB (Studer A820 spec)
+        float gain = 0.00178f;  // -55dB (Studer A820 spec: >55dB stereo crosstalk)
 
         void prepare(float sampleRate)
         {
