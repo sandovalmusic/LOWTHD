@@ -125,7 +125,10 @@ void HybridTapeProcessor::updateCachedValues()
         atanAsymmetry = 1.0;
         useAsymmetricAtan = false;
 
-        dispersiveCornerFreq = 4500.0;
+        // ATR-102: 0.25μm ceramic head gap = negligible gap-induced phase smear
+        // Transformerless config - minimal electronics contribution
+        // Only EQ circuits contribute - very subtle, high-frequency-only smear
+        dispersiveCornerFreq = 10000.0;
     } else {
         // STUDER A820 (TRACKS MODE)
         // Target: MOL @ +9dB (3% THD), E/O ratio 1.122 (even-dominant)
@@ -163,7 +166,9 @@ void HybridTapeProcessor::updateCachedValues()
         double atanNorm = atanDrive / (1.0 + driveBias * driveBias);
         atanNormFactor = (atanNorm > 0.001) ? (1.0 / atanNorm) : 1.0;
 
-        dispersiveCornerFreq = 3500.0;
+        // A820: 3μm head gap = phase smear onset ~25kHz from head + electronics
+        // More pronounced smear starting lower in frequency
+        dispersiveCornerFreq = 2800.0;
     }
 
     // Azimuth delay: Ampex 8μs, Studer 12μs
