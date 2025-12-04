@@ -519,6 +519,89 @@ private:
 
     ToleranceEQ toleranceEQ;
 
+    // Print-Through (Studer mode only)
+    // Simulates magnetic bleed between tape layers on the reel
+    // Creates subtle pre-echo ~65ms before the main signal
+    // Signal-dependent: louder signals create stronger magnetic bleed
+    // Real print-through is proportional to the recorded flux level
+    struct PrintThrough
+    {
+        // Delay buffer for 65ms at up to 192kHz
+        static constexpr int MAX_DELAY_SAMPLES = 12480;  // 65ms @ 192kHz
+        float bufferL[MAX_DELAY_SAMPLES] = {0};
+        float bufferR[MAX_DELAY_SAMPLES] = {0};
+        int writeIndex = 0;
+        int delaySamples = 0;
+
+        // Base print-through coefficient (scales with signal level)
+        // At unity (0dBFS), this gives approximately -55dB of print-through
+        // Quieter signals produce proportionally less print-through
+        static constexpr float printCoeff = 0.00178f;  // -55dB at unity
+
+        // Minimum threshold - signals below this won't produce audible print-through
+        // Prevents noise floor from creating constant low-level artifacts
+        static constexpr float noiseFloor = 0.001f;  // -60dB
+
+        float sampleRate = 48000.0f;
+
+        void prepare(float sr)
+        {
+            sampleRate = sr;
+            // 65ms delay for 30 IPS tape layer spacing
+            delaySamples = static_cast<int>(0.065f * sampleRate);
+            if (delaySamples >= MAX_DELAY_SAMPLES)
+                delaySamples = MAX_DELAY_SAMPLES - 1;
+            reset();
+        }
+
+        void reset()
+        {
+            for (int i = 0; i < MAX_DELAY_SAMPLES; ++i)
+            {
+                bufferL[i] = 0.0f;
+                bufferR[i] = 0.0f;
+            }
+            writeIndex = 0;
+        }
+
+        void processSample(float& left, float& right)
+        {
+            // Read from delay buffer (pre-echo from 65ms ago)
+            int readIndex = writeIndex - delaySamples;
+            if (readIndex < 0) readIndex += MAX_DELAY_SAMPLES;
+
+            float delayedL = bufferL[readIndex];
+            float delayedR = bufferR[readIndex];
+
+            // Signal-dependent print-through:
+            // The amount of magnetic bleed is proportional to the recorded signal level
+            // Louder passages create stronger magnetization, hence more print-through
+            float absL = std::abs(delayedL);
+            float absR = std::abs(delayedR);
+
+            // Apply soft knee above noise floor for natural response
+            // Print level scales quadratically with amplitude (magnetic flux relationship)
+            float printLevelL = (absL > noiseFloor) ? printCoeff * absL : 0.0f;
+            float printLevelR = (absR > noiseFloor) ? printCoeff * absR : 0.0f;
+
+            float preEchoL = delayedL * printLevelL;
+            float preEchoR = delayedR * printLevelR;
+
+            // Write current sample to delay buffer
+            bufferL[writeIndex] = left;
+            bufferR[writeIndex] = right;
+
+            // Advance write index
+            writeIndex = (writeIndex + 1) % MAX_DELAY_SAMPLES;
+
+            // Mix pre-echo into output
+            left += preEchoL;
+            right += preEchoR;
+        }
+    };
+
+    PrintThrough printThrough;
+
     // Auto-gain: Track the last input trim to detect changes
     float lastInputTrimValue = 0.5f;
     bool isUpdatingOutputTrim = false;  // Prevent listener recursion

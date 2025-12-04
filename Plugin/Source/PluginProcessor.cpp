@@ -182,6 +182,9 @@ void LowTHDTapeSimulatorAudioProcessor::prepareToPlay (double sampleRate, int sa
     // Default to Ampex mode, will update in processBlock if needed
     bool isStereo = (getTotalNumInputChannels() >= 2);
     toleranceEQ.prepare (static_cast<float> (sampleRate), isStereo, true);
+
+    // Initialize print-through (Studer mode only, but prepare always)
+    printThrough.prepare (static_cast<float> (sampleRate));
 }
 
 void LowTHDTapeSimulatorAudioProcessor::releaseResources()
@@ -193,6 +196,7 @@ void LowTHDTapeSimulatorAudioProcessor::releaseResources()
     crosstalkFilter.reset();
     headBumpModulator.reset();
     toleranceEQ.reset();
+    printThrough.reset();
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -371,6 +375,32 @@ void LowTHDTapeSimulatorAudioProcessor::processBlock (juce::AudioBuffer<float>& 
             {
                 toleranceEQ.processSample (monoData[sample], dummy);
             }
+        }
+    }
+
+    // === PRINT-THROUGH: Studer mode only ===
+    // Simulates magnetic bleed between tape layers creating subtle pre-echo
+    // Signal-dependent: louder passages create proportionally more print-through
+    // Real-world multitrack tape (more layers, more print-through than 2-track)
+    // 65ms delay represents tape layer spacing at 30 IPS
+    if (machineMode == 1 && totalNumInputChannels >= 2)  // Studer mode, stereo only
+    {
+        float* leftData = buffer.getWritePointer (0);
+        float* rightData = buffer.getWritePointer (1);
+
+        for (int sample = 0; sample < numSamples; ++sample)
+        {
+            printThrough.processSample (leftData[sample], rightData[sample]);
+        }
+    }
+    else if (machineMode == 1 && totalNumInputChannels == 1)  // Studer mode, mono
+    {
+        float* monoData = buffer.getWritePointer (0);
+        float dummy = 0.0f;
+
+        for (int sample = 0; sample < numSamples; ++sample)
+        {
+            printThrough.processSample (monoData[sample], dummy);
         }
     }
 

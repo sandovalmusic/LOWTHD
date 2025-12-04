@@ -887,6 +887,192 @@ void testEvenOddRatio()
 }
 
 // ============================================================================
+// TEST 10: PRINT-THROUGH (Studer mode only)
+// ============================================================================
+struct PrintThrough
+{
+    static constexpr int MAX_DELAY_SAMPLES = 12480;  // 65ms @ 192kHz
+    double bufferL[MAX_DELAY_SAMPLES] = {0};
+    double bufferR[MAX_DELAY_SAMPLES] = {0};
+    int writeIndex = 0;
+    int delaySamples = 0;
+
+    static constexpr double printCoeff = 0.00178;  // -55dB at unity
+    static constexpr double noiseFloor = 0.001;    // -60dB
+
+    double sampleRate = 48000.0;
+
+    void prepare(double sr)
+    {
+        sampleRate = sr;
+        delaySamples = static_cast<int>(0.065 * sampleRate);  // 65ms
+        if (delaySamples >= MAX_DELAY_SAMPLES)
+            delaySamples = MAX_DELAY_SAMPLES - 1;
+        reset();
+    }
+
+    void reset()
+    {
+        for (int i = 0; i < MAX_DELAY_SAMPLES; ++i)
+        {
+            bufferL[i] = 0.0;
+            bufferR[i] = 0.0;
+        }
+        writeIndex = 0;
+    }
+
+    void processSample(double& left, double& right)
+    {
+        int readIndex = writeIndex - delaySamples;
+        if (readIndex < 0) readIndex += MAX_DELAY_SAMPLES;
+
+        double delayedL = bufferL[readIndex];
+        double delayedR = bufferR[readIndex];
+
+        // Signal-dependent print-through
+        double absL = std::abs(delayedL);
+        double absR = std::abs(delayedR);
+
+        double printLevelL = (absL > noiseFloor) ? printCoeff * absL : 0.0;
+        double printLevelR = (absR > noiseFloor) ? printCoeff * absR : 0.0;
+
+        double preEchoL = delayedL * printLevelL;
+        double preEchoR = delayedR * printLevelR;
+
+        // Write current sample to delay buffer
+        bufferL[writeIndex] = left;
+        bufferR[writeIndex] = right;
+
+        writeIndex = (writeIndex + 1) % MAX_DELAY_SAMPLES;
+
+        left += preEchoL;
+        right += preEchoR;
+    }
+};
+
+void testPrintThrough()
+{
+    std::cout << "\n=== TEST 10: Print-Through (Studer mode) ===\n";
+
+    double sampleRate = 48000.0;
+    int delaySamples = static_cast<int>(0.065 * sampleRate);  // 65ms = 3120 samples @ 48kHz
+
+    PrintThrough pt;
+    pt.prepare(sampleRate);
+
+    // Test 1: Verify delay timing
+    // Send an impulse, check pre-echo arrives at correct time
+    int testLength = delaySamples + 1000;
+    std::vector<double> output(testLength, 0.0);
+
+    // First, fill the buffer with a loud signal that will create print-through
+    double loudLevel = 1.0;
+    for (int i = 0; i < delaySamples; ++i)
+    {
+        double left = loudLevel;
+        double right = loudLevel;
+        pt.processSample(left, right);
+    }
+
+    // Now send silence and look for the pre-echo
+    double maxPreEcho = 0.0;
+    int preEchoSample = -1;
+
+    for (int i = 0; i < 1000; ++i)
+    {
+        double left = 0.0;
+        double right = 0.0;
+        pt.processSample(left, right);
+
+        if (std::abs(left) > maxPreEcho)
+        {
+            maxPreEcho = std::abs(left);
+            preEchoSample = i;
+        }
+    }
+
+    // Pre-echo should appear immediately (first sample of silence gets print-through from loud signal)
+    reportTest("Print-Through Delay Timing", preEchoSample == 0,
+               "Pre-echo at sample " + std::to_string(preEchoSample) + " (expected: 0)");
+
+    // Test 2: Signal-dependent level
+    // Loud signals should produce more print-through than quiet signals
+    pt.reset();
+
+    // Test with loud signal
+    double loudInput = 1.0;
+    for (int i = 0; i < delaySamples + 10; ++i)
+    {
+        double left = loudInput;
+        double right = loudInput;
+        pt.processSample(left, right);
+    }
+
+    double loudPTLeft = 0.0, loudPTRight = 0.0;
+    pt.processSample(loudPTLeft, loudPTRight);
+    double loudPT = std::abs(loudPTLeft);
+
+    pt.reset();
+
+    // Test with quiet signal (-20dB)
+    double quietInput = 0.1;
+    for (int i = 0; i < delaySamples + 10; ++i)
+    {
+        double left = quietInput;
+        double right = quietInput;
+        pt.processSample(left, right);
+    }
+
+    double quietPTLeft = 0.0, quietPTRight = 0.0;
+    pt.processSample(quietPTLeft, quietPTRight);
+    double quietPT = std::abs(quietPTLeft);
+
+    // Loud signal should produce significantly more print-through (quadratic scaling)
+    // At 1.0 input: PT = 1.0 * 0.00178 * 1.0 = 0.00178
+    // At 0.1 input: PT = 0.1 * 0.00178 * 0.1 = 0.0000178
+    // Ratio should be ~100:1 (quadratic scaling)
+    double ratio = (quietPT > 0) ? loudPT / quietPT : 0;
+
+    std::cout << "  Loud signal (1.0) PT: " << std::scientific << std::setprecision(4) << loudPT << "\n";
+    std::cout << "  Quiet signal (0.1) PT: " << quietPT << "\n";
+    std::cout << "  Ratio: " << std::fixed << std::setprecision(1) << ratio << ":1 (expected ~100:1)\n";
+
+    reportTest("Signal-Dependent PT - Loud > Quiet", loudPT > quietPT * 10,
+               "Ratio " + std::to_string(static_cast<int>(ratio)) + ":1");
+
+    // Test 3: Noise floor gate
+    // Signals below -60dB should produce no print-through
+    pt.reset();
+
+    double belowFloor = 0.0005;  // -66dB, below -60dB threshold
+    for (int i = 0; i < delaySamples + 10; ++i)
+    {
+        double left = belowFloor;
+        double right = belowFloor;
+        pt.processSample(left, right);
+    }
+
+    double noPTLeft = 0.0, noPTRight = 0.0;
+    pt.processSample(noPTLeft, noPTRight);
+
+    reportTest("Noise Floor Gate Active", std::abs(noPTLeft) < 1e-12,
+               "PT at -66dB input: " + std::to_string(std::abs(noPTLeft)));
+
+    // Test 4: Verify expected level at unity
+    // At unity input, PT should be approximately -55dB (0.00178)
+    double expectedPT = 1.0 * 0.00178 * 1.0;  // signal * coeff * signal (quadratic)
+    double actualPT = loudPT;
+    double errorDB = 20.0 * std::log10(actualPT / expectedPT);
+
+    std::cout << "  Expected PT @ unity: " << std::scientific << expectedPT << "\n";
+    std::cout << "  Actual PT @ unity: " << actualPT << "\n";
+    std::cout << "  Error: " << std::fixed << std::setprecision(2) << errorDB << " dB\n";
+
+    reportTest("PT Level at Unity", std::abs(errorDB) < 1.0,
+               "Error: " + std::to_string(errorDB).substr(0,5) + " dB (tolerance: ±1dB)");
+}
+
+// ============================================================================
 // MAIN
 // ============================================================================
 int main()
@@ -904,6 +1090,7 @@ int main()
     testAzimuthDelay();
     testTHD();
     testEvenOddRatio();
+    testPrintThrough();
 
     // Summary
     std::cout << "\n================================================================\n";

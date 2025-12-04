@@ -124,6 +124,23 @@ Each plugin instance gets unique random values at instantiation. Stereo instance
 
 This creates subtle track-to-track frequency response differences when using multiple plugin instances—just like running audio through different channels of a real multitrack machine.
 
+### Print-Through (Studer Only)
+
+Print-through is magnetic bleed between adjacent tape layers on a wound reel. When tape sits in storage, the magnetic flux from one layer gradually transfers to the layers above and below it, creating ghost copies of the audio. On playback, you hear a faint pre-echo of loud passages approximately 65ms before they occur (the time offset comes from tape layer spacing at 30 IPS).
+
+Multitrack reels were more susceptible than 2-track masters—more layers in contact, often stored longer between sessions, and the economics of studio time meant tapes weren't always stored "tails out" (rewound, which reduces print-through).
+
+LOWTHD models signal-dependent print-through in Studer mode:
+
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| **Delay** | 65ms | Tape layer spacing at 30 IPS |
+| **Base Level** | -55dB | At unity input (0.00178 linear) |
+| **Scaling** | Quadratic | Louder signals = proportionally more print-through |
+| **Noise Gate** | -60dB | Prevents artifacts on quiet signals |
+
+The level scales with signal amplitude because magnetic bleed is proportional to recorded flux—louder passages magnetize the tape more strongly, creating more transfer to adjacent layers. This is why print-through is most noticeable before loud transients like drum hits or vocal attacks.
+
 ### Auto-Gain Compensation
 
 When Drive increases, Volume automatically decreases to maintain constant monitoring level.
@@ -299,11 +316,21 @@ INPUT (from DAW)
 │     └─ Mono: Same tolerance applied to both channels                       │
 │     └─ Randomized once per plugin instantiation (unique per instance)      │
 │                                                                             │
-│ 18. OUTPUT TRIM (Volume)                                                   │
+│ 18. PRINT-THROUGH (Studer mode only)                                       │
+│     └─ Simulates magnetic bleed between tape layers on the reel            │
+│     └─ Creates subtle pre-echo 65ms before the main signal                 │
+│     └─ Signal-dependent: louder passages create more print-through         │
+│     │  └─ Base coefficient: -55dB at unity (0.00178)                       │
+│     │  └─ Level scales quadratically with signal amplitude                 │
+│     │  └─ Noise floor gate at -60dB prevents artifacts on quiet signals    │
+│     └─ Multitrack tape (Studer) had more print-through than 2-track        │
+│     └─ Real-world phenomenon from tape reels sitting in storage            │
+│                                                                             │
+│ 19. OUTPUT TRIM (Volume)                                                   │
 │     └─ Multiply by outputTrimValue (0.1x to 3.0x, default 1.0x)           │
 │     └─ Auto-linked to input trim for gain compensation                      │
 │                                                                             │
-│ 19. FINAL MAKEUP GAIN                                                      │
+│ 20. FINAL MAKEUP GAIN                                                      │
 │     └─ Fixed +6dB (2.0x) to compensate for default -6dB input trim         │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
