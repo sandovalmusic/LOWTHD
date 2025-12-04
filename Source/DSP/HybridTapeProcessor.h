@@ -68,9 +68,8 @@ public:
      *                       < 0.74 = Master (Ampex ATR-102)
      *                       >= 0.74 = Tracks (Studer A820)
      * @param inputGain - Input gain scaling
-     * @param tapeBumpEnabled - Enable machine-specific EQ curve
      */
-    void setParameters(double biasStrength, double inputGain, bool tapeBumpEnabled = true);
+    void setParameters(double biasStrength, double inputGain);
 
     /**
      * Process a single sample through the tape saturation model
@@ -86,7 +85,8 @@ public:
 
 private:
     // Azimuth delay buffer for right channel
-    static constexpr int DELAY_BUFFER_SIZE = 4;
+    // Size 8 supports up to 384kHz sample rate (12μs * 384kHz = 4.6 samples)
+    static constexpr int DELAY_BUFFER_SIZE = 8;
     double delayBuffer[DELAY_BUFFER_SIZE] = {0.0};
     int delayWriteIndex = 0;
     double cachedDelaySamples = 0.0;
@@ -95,7 +95,6 @@ private:
     double currentBiasStrength = 0.65;
     double currentInputGain = 1.0;
     bool isAmpexMode = true;
-    bool tapeBumpEnabled = true;
 
     // Sample rate
     double fs = 48000.0;

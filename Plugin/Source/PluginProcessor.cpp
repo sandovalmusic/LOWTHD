@@ -115,7 +115,7 @@ bool LowTHDTapeSimulatorAudioProcessor::isMidiEffect() const
 
 double LowTHDTapeSimulatorAudioProcessor::getTailLengthSeconds() const
 {
-    return 0.0;  // Zero latency
+    return 0.05;  // 50ms tail for DC blocker and filter decay
 }
 
 int LowTHDTapeSimulatorAudioProcessor::getNumPrograms()
@@ -166,10 +166,16 @@ void LowTHDTapeSimulatorAudioProcessor::prepareToPlay (double sampleRate, int sa
     tapeProcessorLeft.reset();
     tapeProcessorRight.reset();
 
-    // Set default Ampex ATR-102 parameters (Master mode, Machine EQ always on)
+    // Set default Ampex ATR-102 parameters (Master mode)
     const double defaultBias = 0.65;
-    tapeProcessorLeft.setParameters (defaultBias, 1.0, true);
-    tapeProcessorRight.setParameters (defaultBias, 1.0, true);
+    tapeProcessorLeft.setParameters (defaultBias, 1.0);
+    tapeProcessorRight.setParameters (defaultBias, 1.0);
+
+    // Initialize crosstalk filter at base sample rate (applied after downsampling)
+    crosstalkFilter.prepare (static_cast<float> (sampleRate));
+
+    // Initialize head bump modulator (default to Ampex, will update in processBlock)
+    headBumpModulator.prepare (static_cast<float> (sampleRate), true);
 }
 
 void LowTHDTapeSimulatorAudioProcessor::releaseResources()
@@ -178,6 +184,8 @@ void LowTHDTapeSimulatorAudioProcessor::releaseResources()
     tapeProcessorLeft.reset();
     tapeProcessorRight.reset();
     oversampler->reset();
+    crosstalkFilter.reset();
+    headBumpModulator.reset();
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -226,9 +234,8 @@ void LowTHDTapeSimulatorAudioProcessor::processBlock (juce::AudioBuffer<float>& 
     const double bias = (machineMode == 0) ? 0.65 : 0.82;
 
     // Set processor parameters (input gain = 1.0, we apply drive externally via inputTrim)
-    // Machine EQ is always enabled (hardcoded true)
-    tapeProcessorLeft.setParameters (bias, 1.0, true);
-    tapeProcessorRight.setParameters (bias, 1.0, true);
+    tapeProcessorLeft.setParameters (bias, 1.0);
+    tapeProcessorRight.setParameters (bias, 1.0);
 
     const int numSamples = buffer.getNumSamples();
     float peakLevel = 0.0f;
@@ -269,6 +276,64 @@ void LowTHDTapeSimulatorAudioProcessor::processBlock (juce::AudioBuffer<float>& 
 
     // === OVERSAMPLING: Downsample back to original rate ===
     oversampler->processSamplesDown (block);
+
+    // === CROSSTALK: Studer mode only ===
+    // Simulates adjacent track bleed on 24-track tape machines
+    // Adds bandpassed mono signal at -40dB to both channels
+    if (machineMode == 1 && totalNumInputChannels >= 2)  // Studer mode, stereo only
+    {
+        float* leftData = buffer.getWritePointer (0);
+        float* rightData = buffer.getWritePointer (1);
+
+        for (int sample = 0; sample < numSamples; ++sample)
+        {
+            // Sum to mono
+            float mono = (leftData[sample] + rightData[sample]) * 0.5f;
+            // Bandpass and attenuate
+            float crosstalk = crosstalkFilter.process (mono);
+            // Add to both channels
+            leftData[sample] += crosstalk;
+            rightData[sample] += crosstalk;
+        }
+    }
+
+    // === HEAD BUMP MODULATION: Both modes ===
+    // Simulates wow-induced amplitude variation in the head bump frequency region
+    // Updates LFO once per block (efficient), applies sample-by-sample
+    {
+        // Update modulator settings if machine mode changed
+        static int lastMachineMode = -1;
+        if (machineMode != lastMachineMode)
+        {
+            headBumpModulator.prepare (static_cast<float> (getSampleRate()), machineMode == 0);
+            lastMachineMode = machineMode;
+        }
+
+        // Get LFO value for this block (block-rate update)
+        float modGain = headBumpModulator.updateLFO (numSamples);
+
+        // Apply modulation to head bump region
+        if (totalNumInputChannels >= 2)
+        {
+            float* leftData = buffer.getWritePointer (0);
+            float* rightData = buffer.getWritePointer (1);
+
+            for (int sample = 0; sample < numSamples; ++sample)
+            {
+                headBumpModulator.processSample (leftData[sample], rightData[sample], modGain);
+            }
+        }
+        else if (totalNumInputChannels == 1)
+        {
+            float* monoData = buffer.getWritePointer (0);
+            float dummy = 0.0f;
+
+            for (int sample = 0; sample < numSamples; ++sample)
+            {
+                headBumpModulator.processSample (monoData[sample], dummy, modGain);
+            }
+        }
+    }
 
     // Apply output trim (Volume) and final makeup gain
     // Auto-gain is handled by parameter linking: when Drive changes,

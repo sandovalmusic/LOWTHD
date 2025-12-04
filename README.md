@@ -90,8 +90,9 @@ We emulate this with a 4-stage dispersive allpass cascade:
 
 - **Left channel**: Direct processing
 - **Right channel**: Processing + azimuth delay (Ampex: 8μs, Studer: 12μs)
+- **Studer only**: Mono crosstalk filter (-40dB) simulates adjacent track bleed
 
-Creates authentic tape stereo width without phase cancellation.
+Creates authentic tape stereo width without phase cancellation. The Studer crosstalk adds subtle cohesion typical of multitrack machines.
 
 ### Auto-Gain Compensation
 

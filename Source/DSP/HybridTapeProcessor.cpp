@@ -71,12 +71,18 @@ void HybridTapeProcessor::reset()
     jaEnvelope = 0.0;
 }
 
-void HybridTapeProcessor::setParameters(double biasStrength, double inputGain, bool tapeBumpOn)
+void HybridTapeProcessor::setParameters(double biasStrength, double inputGain)
 {
-    currentBiasStrength = std::clamp(biasStrength, 0.0, 1.0);
-    currentInputGain = inputGain;
-    tapeBumpEnabled = tapeBumpOn;
-    updateCachedValues();
+    double clampedBias = std::clamp(biasStrength, 0.0, 1.0);
+    bool newIsAmpexMode = (clampedBias < 0.74);
+
+    // Only update if machine mode or input gain changed
+    if (newIsAmpexMode != isAmpexMode || inputGain != currentInputGain)
+    {
+        currentBiasStrength = clampedBias;
+        currentInputGain = inputGain;
+        updateCachedValues();
+    }
 }
 
 void HybridTapeProcessor::updateCachedValues()
