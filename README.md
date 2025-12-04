@@ -44,7 +44,7 @@ LOWTHD simulates the effect of proper bias through three mechanisms:
 
 **Frequency-Selective Saturation**
 
-AC bias partially erases high-frequency content, which is why professional tape maintains treble clarity while saturating the bass and midrange. We replicate this by applying the CCIR 30 IPS de-emphasis curve before saturation (cutting highs ~7-9dB), then restoring them afterward with the inverse curve.
+AC bias partially erases high-frequency content, which is why professional tape maintains treble clarity while saturating the bass and midrange. We replicate this by applying the CCIR 30 IPS (35μs) de-emphasis curve before saturation (cutting highs up to 13dB at 20kHz), then restoring them afterward with the exact inverse curve.
 
 **Level-Dependent Nonlinearity**
 
@@ -110,7 +110,7 @@ The cumulative effect of many small colorations creates the "tape sound":
 
 - Hysteresis: ~0.01-0.05% THD with frequency-dependent phase
 - Asymmetric saturation: controlled harmonics at <1%
-- De/re-emphasis: ~3-4dB frequency-dependent saturation difference
+- De/re-emphasis: up to 13dB frequency-dependent saturation difference (CCIR 35μs)
 - Head bump: +1-2dB low frequency lift per machine
 - Phase smear: 10-21μs transient softening
 - Azimuth delay: 8-12μs stereo decorrelation
@@ -133,46 +133,147 @@ Individually, nearly imperceptible. Together, fuller bass, cohesive mids, smooth
 ## Signal Flow
 
 ```
-                           PLUGIN WRAPPER
-┌──────────────────────────────────────────────────────────────────────┐
-│                                                                      │
-│  Input → Drive → [2x Oversample] → TAPE PROCESSOR → [Downsample]    │
-│                                           │                          │
-│                                           ↓                          │
-│                              Volume (+6dB makeup) → Output           │
-│                                                                      │
-└──────────────────────────────────────────────────────────────────────┘
-
-                    TAPE PROCESSOR (HybridTapeProcessor)
-┌──────────────────────────────────────────────────────────────────────┐
-│                                                                      │
-│  Input                                                               │
-│    ↓                                                                 │
-│  De-emphasis (CCIR 30 IPS) ──── Cut highs before saturation         │
-│    │                                                                 │
-│    ├─────────────────────────────┐                                   │
-│    ↓                             ↓                                   │
-│  J-A Hysteresis            Asymmetric Tanh                          │
-│  (magnetic memory)         (primary THD)                             │
-│    │                             │                                   │
-│    │                             ↓                                   │
-│    │                       Level-Dependent Atan                      │
-│    │                       (knee steepening)                         │
-│    ↓                             ↓                                   │
-│  Level-Dependent Blend ←─────────┘                                   │
-│    ↓                                                                 │
-│  Re-emphasis (CCIR 30 IPS) ──── Restore highs                       │
-│    ↓                                                                 │
-│  HF Dispersive Allpass (4-stage)                                    │
-│    ↓                                                                 │
-│  Machine EQ (head bump, always-on per mode)                         │
-│    ↓                                                                 │
-│  DC Block (4th-order Butterworth @ 5Hz)                             │
-│    ↓                                                                 │
-│  Output (+ Azimuth Delay on right channel)                          │
-│                                                                      │
-└──────────────────────────────────────────────────────────────────────┘
+INPUT (from DAW)
+     │
+     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PLUGIN PROCESSOR                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. INPUT TRIM (Drive)                                                      │
+│     └─ Multiply by inputTrimValue (0.25x to 8.0x, default 0.5x = -6dB)     │
+│     └─ Peak level measured here for metering                                │
+│                                                                             │
+│  2. UPSAMPLE 2x (JUCE Oversampling)                                        │
+│     └─ Half-band polyphase IIR filter (minimum phase)                       │
+│     └─ Sample rate: 48kHz → 96kHz (or whatever 2x base rate)               │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                    HYBRID TAPE PROCESSOR (per channel)                      │
+│                    Runs at 2x oversampled rate                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  3. ENVELOPE FOLLOWER                                                       │
+│     └─ Track signal level for blend decisions                               │
+│     └─ Attack: 0.002 coeff (~3ms), Release: 0.020 coeff (~30ms)            │
+│                                                                             │
+│  4. DE-EMPHASIS (CCIR 30 IPS, 35μs)                                        │
+│     └─ 5-stage biquad EQ matching CCIR curve within ±0.5dB                 │
+│     └─ Cuts highs: +0dB@1kHz, -3dB@4.5kHz, -7.7dB@10kHz, -13dB@20kHz      │
+│                                                                             │
+│  5. SATURATION PATH A: JILES-ATHERTON HYSTERESIS                           │
+│     │  └─ Physics-based magnetic domain model                               │
+│     │  └─ Newton-Raphson solver for M(H) relationship                       │
+│     │  └─ Ampex: a=50, k=0.005, c=0.95, α=1e-6                             │
+│     │  └─ Studer: a=35, k=0.01, c=0.92, α=1e-5                             │
+│     │  └─ Input scaled by jaInputScale (1.0)                               │
+│     │  └─ Output scaled by jaOutputScale (Ampex:150, Studer:105)           │
+│     │                                                                       │
+│  6. SATURATION PATH B: ASYMMETRIC TANH                                     │
+│     │  └─ asymmetricTanh(x) = (tanh(drive*(x+bias)) - dcOffset) * normFactor│
+│     │  └─ Ampex: drive=0.095, asymmetry=1.08 (odd-dominant)                │
+│     │  └─ Studer: drive=0.14, asymmetry=1.18 (even-dominant)               │
+│     │                                                                       │
+│  7. LEVEL-DEPENDENT ATAN (series after tanh)                               │
+│     │  └─ Blends in at high levels for knee steepening                     │
+│     │  └─ Ampex: symmetric atan, drive=5.0, mixMax=0.65                    │
+│     │  └─ Studer: asymmetric atan, drive=5.5, mixMax=0.72, asym=1.25       │
+│     │  └─ Crossfade based on envelope vs threshold                          │
+│     │                                                                       │
+│  8. PARALLEL BLEND (J-A + Tanh paths)                                      │
+│     └─ jaBlend = smoothstep based on envelope level                         │
+│     └─ Ampex: threshold=0.77, width=1.5, max=1.0                           │
+│     └─ Studer: threshold=0.60, width=1.2, max=1.0                          │
+│     └─ output = jaPath * jaBlend + tanhPath * (1 - jaBlend)                │
+│                                                                             │
+│  9. RE-EMPHASIS (CCIR 30 IPS, 35μs)                                        │
+│     └─ 5-stage biquad EQ (exact inverse of de-emphasis)                    │
+│     └─ Boosts highs: +0dB@1kHz, +3dB@4.5kHz, +7.7dB@10kHz, +13dB@20kHz    │
+│                                                                             │
+│ 10. MACHINE EQ (Head Bump - always on)                                     │
+│     └─ AMPEX ATR-102:                                                       │
+│     │  └─ HP 20.8Hz Q=0.707                                                │
+│     │  └─ Bell 28Hz Q=2.5 +1.0dB                                           │
+│     │  └─ Bell 40Hz Q=1.8 +1.35dB (head bump)                              │
+│     │  └─ Bell 70Hz Q=3.0 -0.1dB                                           │
+│     │  └─ Bell 105Hz Q=2.0 +0.3dB                                          │
+│     │  └─ Bell 150Hz Q=2.0 +0.1dB                                          │
+│     │  └─ Bell 300Hz Q=0.8 -0.5dB                                          │
+│     │  └─ Bell 1200Hz Q=1.5 -0.2dB                                         │
+│     │  └─ Bell 3000Hz Q=1.2 -0.4dB                                         │
+│     │  └─ Bell 16000Hz Q=1.5 -0.4dB                                        │
+│     │  └─ Bell 20000Hz Q=0.6 +0.45dB                                       │
+│     │  └─ LP 40000Hz (6dB/oct)                                             │
+│     │                                                                       │
+│     └─ STUDER A820:                                                         │
+│        └─ HP 27Hz Q=1.0 (12dB/oct)                                         │
+│        └─ HP 27Hz (6dB/oct) → total 18dB/oct                               │
+│        └─ Bell 49.5Hz Q=1.5 +0.6dB (head bump 1)                           │
+│        └─ Bell 72Hz Q=2.07 -1.0dB (dip)                                    │
+│        └─ Bell 110Hz Q=1.0 +1.8dB (head bump 2)                            │
+│        └─ Bell 180Hz Q=1.0 -0.7dB                                          │
+│        └─ Bell 400Hz Q=1.5 +0.1dB                                          │
+│        └─ Bell 2000Hz Q=1.5 +0.15dB                                        │
+│        └─ Bell 10000Hz Q=2.5 0dB                                           │
+│        └─ Bell 20000Hz Q=1.2 +0.35dB                                       │
+│                                                                             │
+│ 11. HF DISPERSIVE ALLPASS (4 stages)                                       │
+│     └─ Creates frequency-dependent phase shift (head gap smear)            │
+│     └─ Ampex: corner=4500Hz, stages at 4.5k, 6.4k, 9k, 12.7kHz            │
+│     └─ Studer: corner=3500Hz, stages at 3.5k, 4.9k, 7k, 9.9kHz            │
+│     └─ Each stage: 1st-order allpass                                        │
+│                                                                             │
+│ 12. DC BLOCKING (4th-order Butterworth @ 5Hz)                              │
+│     └─ Two cascaded 2nd-order highpass biquads                             │
+│     └─ Removes any DC offset from asymmetric saturation                    │
+│                                                                             │
+│ 13. AZIMUTH DELAY (Right channel only)                                     │
+│     └─ Linear interpolated fractional delay                                 │
+│     └─ Ampex: 8μs delay                                                    │
+│     └─ Studer: 12μs delay                                                  │
+│     └─ Buffer size: 8 samples (supports up to 384kHz)                      │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                    BACK TO PLUGIN PROCESSOR                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ 14. DOWNSAMPLE 2x (JUCE Oversampling)                                      │
+│     └─ Half-band polyphase IIR filter (minimum phase)                       │
+│     └─ Sample rate: 96kHz → 48kHz                                          │
+│                                                                             │
+│ 15. CROSSTALK (Studer mode only, stereo only)                              │
+│     └─ mono = (L + R) * 0.5                                                │
+│     └─ Highpass 100Hz Q=0.707                                              │
+│     └─ Lowpass 8000Hz Q=0.707                                              │
+│     └─ Multiply by 0.01 (-40dB)                                            │
+│     └─ Add to both L and R channels                                         │
+│                                                                             │
+│ 16. HEAD BUMP MODULATION (Both modes)                                      │
+│     └─ LFO: sin(0.63Hz)*0.5 + sin(1.07Hz)*0.3 + sin(0.31Hz)*0.2           │
+│     └─ Updated once per block (block-rate, ~0.6Hz effective)               │
+│     └─ Bandpass filter isolates bump region                                 │
+│     │  └─ Ampex: 40Hz center, Q=0.7                                        │
+│     │  └─ Studer: 75Hz center, Q=0.7                                       │
+│     └─ Modulation depth:                                                    │
+│     │  └─ Ampex: ±0.08dB (±0.009 linear)                                   │
+│     │  └─ Studer: ±0.12dB (±0.014 linear)                                  │
+│     └─ bumpSignal = bandpass(input)                                        │
+│     └─ output = input + bumpSignal * (modGain - 1.0)                       │
+│                                                                             │
+│ 17. OUTPUT TRIM (Volume)                                                   │
+│     └─ Multiply by outputTrimValue (0.1x to 3.0x, default 1.0x)           │
+│     └─ Auto-linked to input trim for gain compensation                      │
+│                                                                             │
+│ 18. FINAL MAKEUP GAIN                                                      │
+│     └─ Fixed +6dB (2.0x) to compensate for default -6dB input trim         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+     │
+     ▼
+OUTPUT (to DAW)
 ```
+
+**Total latency:** ~7 samples at 44.1kHz (~0.16ms) from the 2x IIR oversampling.
 
 ## THD Specifications
 
@@ -220,7 +321,7 @@ The result: a physics-based tape simulation suitable for tracking and live monit
 
 ### Low CPU Usage
 
-The same design choices minimize CPU consumption. Single 2x oversampling stage, one Jiles-Atherton pass, straightforward filters. No iterative solvers at 16x sample rate, no neural network inference, no convolution.
+The same design choices minimize CPU consumption. Single 2x oversampling stage, one Jiles-Atherton pass, and efficient biquad filters. The CCIR emphasis uses 5 cascaded biquads per channel—straightforward arithmetic with no iterative solvers, neural network inference, or convolution.
 
 Multiple instances run simultaneously without significant system impact.
 

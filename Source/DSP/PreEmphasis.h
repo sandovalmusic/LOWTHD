@@ -28,7 +28,23 @@ struct Biquad
     }
 };
 
+// CCIR 30 IPS Standard Time Constants
+// ====================================
+// 30 IPS uses τ = 35 μs
+// Turnover frequency: f_t = 1/(2πτ) = 4547 Hz
+//
+// Reference CCIR curve: G(f) = sqrt(1 + (f/4547)²)
+// In dB: 10 * log10(1 + (f/4547)²)
+//
+// Target values:
+//   1 kHz:   +0.21 dB
+//   4.5 kHz: +3.01 dB (turnover)
+//   10 kHz:  +7.66 dB
+//   15 kHz:  +10.75 dB
+//   20 kHz:  +13.08 dB
+
 // 30 IPS CCIR Re-Emphasis (applied AFTER saturation)
+// Uses cascaded shelves + bells to match CCIR curve accurately
 class ReEmphasis
 {
 public:
@@ -39,14 +55,17 @@ public:
 
 private:
     double fs = 48000.0;
-    Biquad shelf1, shelf2, shelf3, bell1, bell2;
+    Biquad shelf1;      // First high shelf
+    Biquad shelf2;      // Second high shelf
+    Biquad bell1;       // Correction bell 1
+    Biquad bell2;       // Correction bell 2
+    Biquad bell3;       // HF shaping
 
     void updateCoefficients();
-    void designHighShelf(Biquad& filter, double fc, double gainDB, double Q);
-    void designBell(Biquad& filter, double fc, double gainDB, double Q);
 };
 
-// De-Emphasis (applied BEFORE saturation - inverse of re-emphasis)
+// 30 IPS CCIR De-Emphasis (applied BEFORE saturation)
+// Exact inverse of re-emphasis
 class DeEmphasis
 {
 public:
@@ -57,11 +76,13 @@ public:
 
 private:
     double fs = 48000.0;
-    Biquad shelf1, shelf2, shelf3, bell1, bell2;
+    Biquad shelf1;
+    Biquad shelf2;
+    Biquad bell1;
+    Biquad bell2;
+    Biquad bell3;
 
     void updateCoefficients();
-    void designHighShelf(Biquad& filter, double fc, double gainDB, double Q);
-    void designBell(Biquad& filter, double fc, double gainDB, double Q);
 };
 
 } // namespace TapeHysteresis
