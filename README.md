@@ -31,8 +31,8 @@ LOWTHD models what actually matters—the tape and heads—rather than the ampli
 
 | Mode | Machine | Use On | Character | THD @ 0dB | E/O Ratio |
 |------|---------|--------|-----------|-----------|-----------|
-| **Master** | Ampex ATR-102 | Master bus | Cleaner, faster | ~0.08% | 0.53 (odd) |
-| **Tracks** | Studer A820 | Individual tracks | Softer, warmer | ~0.24% | 1.09 (even) |
+| **Master** | Ampex ATR-102 | Master bus | Cleaner, faster | ~0.38% | 0.54 (odd) |
+| **Tracks** | Studer A820 | Individual tracks | Softer, warmer | ~0.49% | 1.20 (even) |
 
 ### AC Bias Simulation
 
@@ -356,27 +356,33 @@ OUTPUT (to DAW)
 
 ## THD Specifications
 
-THD targets are intentionally approximate—we traded some accuracy to let the Jiles-Atherton hysteresis play a bigger role. The frequency-dependent behavior and magnetic "memory" matter more than hitting exact distortion percentages.
+Tuned for realistic MOL (Maximum Output Level) and E/O (Even/Odd harmonic ratio) targets based on real machine measurements. Full Jiles-Atherton hysteresis blends in at high levels for authentic magnetic behavior.
 
 ### Ampex ATR-102 (Master Mode)
-| Level | Measured THD | Target | E/O Ratio |
-|-------|--------------|--------|-----------|
-| -12 dB | 0.012% | 0.025% | 0.53 |
-| -6 dB | 0.025% | 0.050% | 0.53 |
-| 0 dB | 0.082% | 0.100% | 0.53 |
-| +3 dB | 0.160% | 0.200% | 0.53 |
-| +6 dB | 0.365% | 0.425% | 0.53 |
-| +9 dB | 0.902% | 0.900% | 0.53 |
+**Target: MOL @ +12dB (3% THD), E/O = 0.503 (odd-dominant)**
+
+| Level | Measured THD | E/O Ratio |
+|-------|--------------|-----------|
+| -12 dB | 0.07% | 4.71 |
+| -6 dB | 0.16% | 2.35 |
+| 0 dB | 0.38% | 1.17 |
+| +3 dB | 0.63% | 0.83 |
+| +6 dB | 1.13% | 0.54 |
+| +9 dB | 2.14% | 0.34 |
+| +12 dB | 2.74% | 0.22 |
 
 ### Studer A820 (Tracks Mode)
-| Level | Measured THD | Target | E/O Ratio |
-|-------|--------------|--------|-----------|
-| -12 dB | 0.046% | 0.035% | 1.09 |
-| -6 dB | 0.097% | 0.070% | 1.09 |
-| 0 dB | 0.242% | 0.275% | 1.09 |
-| +3 dB | 0.438% | 0.575% | 1.09 |
-| +6 dB | 1.067% | 1.300% | 1.09 |
-| +9 dB | 2.001% | 2.750% | 1.09 |
+**Target: MOL @ +9dB (3% THD), E/O = 1.122 (even-dominant)**
+
+| Level | Measured THD | E/O Ratio |
+|-------|--------------|-----------|
+| -12 dB | 0.12% | 10.14 |
+| -6 dB | 0.24% | 5.08 |
+| 0 dB | 0.49% | 2.54 |
+| +3 dB | 0.79% | 1.79 |
+| +6 dB | 1.75% | 1.20 |
+| +9 dB | 2.98% | 0.75 |
+| +12 dB | 2.38% | 0.47 |
 
 ## Technical Details
 
@@ -422,15 +428,15 @@ The J-A model simulates magnetic domain behavior. Low frequencies have slower ze
 
 **Ampex ATR-102:**
 ```
-Tanh:  drive=0.095, asymmetry=1.08
+Tanh:  drive=0.175, asymmetry=1.19
 Atan:  drive=5.0, mixMax=0.65, threshold=0.5, width=2.5, symmetric
 J-A:   blendMax=1.0, threshold=0.77, width=1.5
 ```
 
 **Studer A820:**
 ```
-Tanh:  drive=0.14, asymmetry=1.18
-Atan:  drive=5.5, mixMax=0.72, threshold=0.4, width=2.5, asymmetric=1.25
+Tanh:  drive=0.150, asymmetry=1.41
+Atan:  drive=5.5, mixMax=0.72, threshold=0.4, width=2.5, asymmetric=1.40
 J-A:   blendMax=1.0, threshold=0.60, width=1.2
 ```
 
@@ -463,7 +469,7 @@ LOWTHD/
 ├── Source/DSP/
 │   ├── HybridTapeProcessor.cpp/h   # Main saturation engine
 │   ├── JilesAthertonCore.h         # Physics-based hysteresis
-│   ├── PreEmphasis.cpp/h           # AC bias shielding curves per machine
+│   ├── BiasShielding.cpp/h         # AC bias shielding curves per machine
 │   └── MachineEQ.cpp/h             # Head bump EQ per machine
 └── Plugin/Source/
     ├── PluginProcessor.cpp/h       # JUCE wrapper, oversampling

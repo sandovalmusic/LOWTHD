@@ -49,7 +49,7 @@ target_sources(LowTHDTape PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
     ../Source/DSP/HybridTapeProcessor.cpp
-    ../Source/DSP/PreEmphasis.cpp
+    ../Source/DSP/BiasShielding.cpp
     ../Source/DSP/MachineEQ.cpp
 )
 
