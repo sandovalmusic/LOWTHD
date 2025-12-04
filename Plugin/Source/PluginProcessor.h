@@ -534,9 +534,10 @@ private:
         int delaySamples = 0;
 
         // Base print-through coefficient (scales with signal level)
-        // At unity (0dBFS), this gives approximately -55dB of print-through
+        // At unity (0dBFS), this gives approximately -58dB of print-through
+        // GP9 tape has ~3dB less print-through than older formulations (456)
         // Quieter signals produce proportionally less print-through
-        static constexpr float printCoeff = 0.00178f;  // -55dB at unity
+        static constexpr float printCoeff = 0.00126f;  // -58dB at unity (GP9 spec)
 
         // Minimum threshold - signals below this won't produce audible print-through
         // Prevents noise floor from creating constant low-level artifacts

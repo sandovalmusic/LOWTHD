@@ -130,12 +130,12 @@ Print-through is magnetic bleed between adjacent tape layers on a wound reel. Wh
 
 Multitrack reels were more susceptible than 2-track masters—more layers in contact, often stored longer between sessions, and the economics of studio time meant tapes weren't always stored "tails out" (rewound, which reduces print-through).
 
-LOWTHD models signal-dependent print-through in Studer mode:
+LOWTHD models signal-dependent print-through in Studer mode, calibrated for GP9 tape:
 
 | Parameter | Value | Notes |
 |-----------|-------|-------|
-| **Delay** | 65ms | Tape layer spacing at 30 IPS |
-| **Base Level** | -55dB | At unity input (0.00178 linear) |
+| **Delay** | 65ms | Tape layer spacing at 30 IPS (1.5 mil tape) |
+| **Base Level** | -58dB | GP9 spec (~3dB less than older 456 formulation) |
 | **Scaling** | Quadratic | Louder signals = proportionally more print-through |
 | **Noise Gate** | -60dB | Prevents artifacts on quiet signals |
 
@@ -316,11 +316,11 @@ INPUT (from DAW)
 │     └─ Mono: Same tolerance applied to both channels                       │
 │     └─ Randomized once per plugin instantiation (unique per instance)      │
 │                                                                             │
-│ 18. PRINT-THROUGH (Studer mode only)                                       │
+│ 18. PRINT-THROUGH (Studer mode only, GP9 tape)                             │
 │     └─ Simulates magnetic bleed between tape layers on the reel            │
 │     └─ Creates subtle pre-echo 65ms before the main signal                 │
 │     └─ Signal-dependent: louder passages create more print-through         │
-│     │  └─ Base coefficient: -55dB at unity (0.00178)                       │
+│     │  └─ Base coefficient: -58dB at unity (0.00126, GP9 spec)             │
 │     │  └─ Level scales quadratically with signal amplitude                 │
 │     │  └─ Noise floor gate at -60dB prevents artifacts on quiet signals    │
 │     └─ Multitrack tape (Studer) had more print-through than 2-track        │

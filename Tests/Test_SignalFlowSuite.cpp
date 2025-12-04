@@ -897,7 +897,7 @@ struct PrintThrough
     int writeIndex = 0;
     int delaySamples = 0;
 
-    static constexpr double printCoeff = 0.00178;  // -55dB at unity
+    static constexpr double printCoeff = 0.00126;  // -58dB at unity (GP9 spec)
     static constexpr double noiseFloor = 0.001;    // -60dB
 
     double sampleRate = 48000.0;
@@ -1059,8 +1059,8 @@ void testPrintThrough()
                "PT at -66dB input: " + std::to_string(std::abs(noPTLeft)));
 
     // Test 4: Verify expected level at unity
-    // At unity input, PT should be approximately -55dB (0.00178)
-    double expectedPT = 1.0 * 0.00178 * 1.0;  // signal * coeff * signal (quadratic)
+    // At unity input, PT should be approximately -58dB (0.00126) for GP9 tape
+    double expectedPT = 1.0 * 0.00126 * 1.0;  // signal * coeff * signal (quadratic)
     double actualPT = loudPT;
     double errorDB = 20.0 * std::log10(actualPT / expectedPT);
 
