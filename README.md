@@ -72,7 +72,7 @@ Each machine includes a modest head bump modeled after the total output EQ of bo
 
 | Mode | Character | Low End | Head Bump |
 |------|-----------|---------|-----------|
-| **Ampex** | Cleaner, tighter | HP @ 20Hz | +1.15dB @ 40Hz |
+| **Ampex** | Cleaner, tighter | 12db/oct HP @ 20Hz | +1.15dB @ 40Hz, +0.3db @105hz |
 | **Studer** | Fuller, warmer | 18dB/oct HP @ 27Hz | +0.7dB @ 50Hz, +1.2dB @ 110Hz |
 
 ### HF Phase Smear
