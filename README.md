@@ -90,7 +90,7 @@ We emulate this with a 4-stage dispersive allpass cascade:
 
 - **Left channel**: Direct processing
 - **Right channel**: Processing + azimuth delay (Ampex: 8μs, Studer: 12μs)
-- **Studer only**: Mono crosstalk filter (-40dB) simulates adjacent track bleed
+- **Studer only**: Mono crosstalk filter (-50dB) simulates adjacent track bleed
 
 Creates authentic tape stereo width without phase cancellation. The Studer crosstalk adds subtle cohesion typical of multitrack machines.
 
@@ -292,7 +292,7 @@ INPUT (from DAW)
 │     └─ mono = (L + R) * 0.5                                                │
 │     └─ Highpass 100Hz Q=0.707                                              │
 │     └─ Lowpass 8000Hz Q=0.707                                              │
-│     └─ Multiply by 0.01 (-40dB)                                            │
+│     └─ Multiply by 0.00316 (-50dB, Studer A820 spec)                       │
 │     └─ Add to both L and R channels                                         │
 │                                                                             │
 │ 16. HEAD BUMP MODULATION (Both modes)                                      │
