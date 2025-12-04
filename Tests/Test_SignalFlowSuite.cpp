@@ -1073,6 +1073,193 @@ void testPrintThrough()
 }
 
 // ============================================================================
+// TEST 11: CROSSTALK (Studer mode only)
+// ============================================================================
+struct CrosstalkFilter
+{
+    struct Biquad
+    {
+        double b0 = 1.0, b1 = 0.0, b2 = 0.0;
+        double a1 = 0.0, a2 = 0.0;
+        double z1 = 0.0, z2 = 0.0;
+
+        void reset() { z1 = z2 = 0.0; }
+
+        double process(double input)
+        {
+            double output = b0 * input + z1;
+            z1 = b1 * input - a1 * output + z2;
+            z2 = b2 * input - a2 * output;
+            return output;
+        }
+
+        void setHighPass(double fc, double Q, double sampleRate)
+        {
+            double w0 = 2.0 * M_PI * fc / sampleRate;
+            double cosw0 = std::cos(w0);
+            double sinw0 = std::sin(w0);
+            double alpha = sinw0 / (2.0 * Q);
+            double a0 = 1.0 + alpha;
+            b0 = ((1.0 + cosw0) / 2.0) / a0;
+            b1 = (-(1.0 + cosw0)) / a0;
+            b2 = ((1.0 + cosw0) / 2.0) / a0;
+            a1 = (-2.0 * cosw0) / a0;
+            a2 = (1.0 - alpha) / a0;
+        }
+
+        void setLowPass(double fc, double Q, double sampleRate)
+        {
+            double w0 = 2.0 * M_PI * fc / sampleRate;
+            double cosw0 = std::cos(w0);
+            double sinw0 = std::sin(w0);
+            double alpha = sinw0 / (2.0 * Q);
+            double a0 = 1.0 + alpha;
+            b0 = ((1.0 - cosw0) / 2.0) / a0;
+            b1 = (1.0 - cosw0) / a0;
+            b2 = ((1.0 - cosw0) / 2.0) / a0;
+            a1 = (-2.0 * cosw0) / a0;
+            a2 = (1.0 - alpha) / a0;
+        }
+    };
+
+    Biquad highpass;
+    Biquad lowpass;
+    double gain = 0.00316;  // -50dB (Studer A820 spec)
+
+    void prepare(double sampleRate)
+    {
+        highpass.setHighPass(100.0, 0.707, sampleRate);
+        lowpass.setLowPass(8000.0, 0.707, sampleRate);
+        reset();
+    }
+
+    void reset()
+    {
+        highpass.reset();
+        lowpass.reset();
+    }
+
+    double process(double monoInput)
+    {
+        double filtered = highpass.process(monoInput);
+        filtered = lowpass.process(filtered);
+        return filtered * gain;
+    }
+};
+
+void testCrosstalk()
+{
+    std::cout << "\n=== TEST 11: Crosstalk (Studer mode) ===\n";
+
+    double sampleRate = 48000.0;
+    CrosstalkFilter xtalk;
+    xtalk.prepare(sampleRate);
+
+    // Test 1: Verify -50dB level at 1kHz (in passband)
+    double testFreq = 1000.0;
+    int numCycles = 100;
+    int samplesPerCycle = static_cast<int>(sampleRate / testFreq);
+    int totalSamples = numCycles * samplesPerCycle;
+    int skipSamples = 10 * samplesPerCycle;  // Let filter settle
+
+    double inputRMS = 0.0;
+    double outputRMS = 0.0;
+
+    for (int i = 0; i < totalSamples; ++i)
+    {
+        double t = static_cast<double>(i) / sampleRate;
+        double input = std::sin(2.0 * M_PI * testFreq * t);
+        double output = xtalk.process(input);
+
+        if (i >= skipSamples)
+        {
+            inputRMS += input * input;
+            outputRMS += output * output;
+        }
+    }
+
+    inputRMS = std::sqrt(inputRMS / (totalSamples - skipSamples));
+    outputRMS = std::sqrt(outputRMS / (totalSamples - skipSamples));
+
+    double levelDB = 20.0 * std::log10(outputRMS / inputRMS);
+
+    std::cout << "  1kHz level: " << std::fixed << std::setprecision(1) << levelDB << " dB (target: -50dB)\n";
+
+    reportTest("Crosstalk Level @ 1kHz", std::abs(levelDB - (-50.0)) < 1.0,
+               std::to_string(levelDB).substr(0,5) + " dB (tolerance: ±1dB from -50dB)");
+
+    // Test 2: Verify highpass at 100Hz (should attenuate 50Hz)
+    xtalk.reset();
+    testFreq = 50.0;
+    samplesPerCycle = static_cast<int>(sampleRate / testFreq);
+    totalSamples = numCycles * samplesPerCycle;
+    skipSamples = 20 * samplesPerCycle;
+
+    inputRMS = 0.0;
+    outputRMS = 0.0;
+
+    for (int i = 0; i < totalSamples; ++i)
+    {
+        double t = static_cast<double>(i) / sampleRate;
+        double input = std::sin(2.0 * M_PI * testFreq * t);
+        double output = xtalk.process(input);
+
+        if (i >= skipSamples)
+        {
+            inputRMS += input * input;
+            outputRMS += output * output;
+        }
+    }
+
+    inputRMS = std::sqrt(inputRMS / (totalSamples - skipSamples));
+    outputRMS = std::sqrt(outputRMS / (totalSamples - skipSamples));
+
+    double level50Hz = 20.0 * std::log10(outputRMS / inputRMS);
+
+    std::cout << "  50Hz level: " << std::fixed << std::setprecision(1) << level50Hz << " dB\n";
+
+    // 50Hz should be attenuated more than 1kHz (highpass effect)
+    reportTest("Crosstalk HP Active (50Hz < 1kHz)", level50Hz < levelDB - 3.0,
+               "50Hz at " + std::to_string(level50Hz).substr(0,5) + " dB vs 1kHz at " +
+               std::to_string(levelDB).substr(0,5) + " dB");
+
+    // Test 3: Verify lowpass at 8kHz (should attenuate 12kHz)
+    xtalk.reset();
+    testFreq = 12000.0;
+    samplesPerCycle = static_cast<int>(sampleRate / testFreq);
+    totalSamples = numCycles * samplesPerCycle;
+    skipSamples = 20 * samplesPerCycle;
+
+    inputRMS = 0.0;
+    outputRMS = 0.0;
+
+    for (int i = 0; i < totalSamples; ++i)
+    {
+        double t = static_cast<double>(i) / sampleRate;
+        double input = std::sin(2.0 * M_PI * testFreq * t);
+        double output = xtalk.process(input);
+
+        if (i >= skipSamples)
+        {
+            inputRMS += input * input;
+            outputRMS += output * output;
+        }
+    }
+
+    inputRMS = std::sqrt(inputRMS / (totalSamples - skipSamples));
+    outputRMS = std::sqrt(outputRMS / (totalSamples - skipSamples));
+
+    double level12kHz = 20.0 * std::log10(outputRMS / inputRMS);
+
+    std::cout << "  12kHz level: " << std::fixed << std::setprecision(1) << level12kHz << " dB\n";
+
+    // 12kHz should be attenuated more than 1kHz (lowpass effect)
+    reportTest("Crosstalk LP Active (12kHz < 1kHz)", level12kHz < levelDB - 3.0,
+               "12kHz at " + std::to_string(level12kHz).substr(0,5) + " dB vs 1kHz at " +
+               std::to_string(levelDB).substr(0,5) + " dB");
+}
+
+// ============================================================================
 // MAIN
 // ============================================================================
 int main()
@@ -1091,6 +1278,7 @@ int main()
     testTHD();
     testEvenOddRatio();
     testPrintThrough();
+    testCrosstalk();
 
     // Summary
     std::cout << "\n================================================================\n";
