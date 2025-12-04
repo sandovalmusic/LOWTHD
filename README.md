@@ -109,6 +109,7 @@ LOWTHD uses extremely level-dependent saturation tuned for realistic levels (-6d
 
 | Level | THD | E/O |
 |-------|-----|-----|
+| -12 dB | 0.07% | 4.71 |
 | -6 dB | 0.16% | 2.35 |
 | 0 dB | 0.38% | 1.17 |
 | +6 dB | 1.13% | 0.54 |
@@ -118,6 +119,7 @@ LOWTHD uses extremely level-dependent saturation tuned for realistic levels (-6d
 
 | Level | THD | E/O |
 |-------|-----|-----|
+| -12 dB | 0.12% | 10.14 |
 | -6 dB | 0.24% | 5.08 |
 | 0 dB | 0.49% | 2.54 |
 | +6 dB | 1.75% | 1.20 |
