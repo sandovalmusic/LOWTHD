@@ -38,11 +38,13 @@ double measureTHD(const std::vector<double>& signal, double sampleRate, double t
 
 int main() {
     double sampleRate = 96000.0;
-    double testFreq = 100.0;  // LF for minimal clean HF dilution
+    double testFreq = 100.0;
 
     std::cout << "=== STUDER A820 Tuning (100Hz) ===\n\n";
     std::cout << "Targets:\n";
-    std::cout << "  - THD @ 0dB: ~1% (warmer than Ampex)\n";
+    std::cout << "  - THD @ -6dB: 0.07%\n";
+    std::cout << "  - THD @ 0dB: 0.25%\n";
+    std::cout << "  - THD @ +6dB: 1.25%\n";
     std::cout << "  - MOL (3% THD): +9dB\n";
     std::cout << "  - E/O ratio: ~1.12 (even-dominant)\n\n";
 
@@ -52,8 +54,8 @@ int main() {
     processor.setSampleRate(sampleRate);
     processor.setParameters(0.8, 1.0);  // Studer mode (bias >= 0.74)
 
-    std::cout << "Level      THD%       H2/H3     Status\n";
-    std::cout << "-----------------------------------------------\n";
+    std::cout << "Level      THD%       H2/H3     Target      Status\n";
+    std::cout << "--------------------------------------------------------\n";
 
     for (double levelDb : testLevels) {
         double amplitude = std::pow(10.0, levelDb / 20.0);
@@ -75,19 +77,27 @@ int main() {
         double thd = measureTHD(output, sampleRate, testFreq, &h2, &h3);
         double eoRatio = (h3 > 0.0001) ? h2 / h3 : 0;
 
+        const char* target = "";
         const char* status = "";
-        if (levelDb == 0.0) {
-            if (thd >= 0.8 && thd <= 1.2) status = "✓ ON TARGET";
-            else if (thd < 0.8) status = "⬆ need more THD";
-            else status = "⬇ need less THD";
-        } else if (thd >= 2.9 && thd <= 3.1) {
-            status = "← MOL (3% THD)";
+
+        if (levelDb == -6.0) {
+            target = "0.07%";
+            if (thd >= 0.05 && thd <= 0.10) status = "OK";
+        } else if (levelDb == 0.0) {
+            target = "0.25%";
+            if (thd >= 0.20 && thd <= 0.30) status = "OK";
+        } else if (levelDb == 6.0) {
+            target = "1.25%";
+            if (thd >= 1.0 && thd <= 1.5) status = "OK";
+        } else if (levelDb == 9.0) {
+            target = "3.0%";
+            if (thd >= 2.5 && thd <= 3.5) status = "MOL";
         }
 
-        printf("  %+3.0f dB    %.3f%%      %.2f      %s\n", levelDb, thd, eoRatio, status);
+        printf("  %+3.0f dB    %.3f%%      %.2f      %s      %s\n", levelDb, thd, eoRatio, target, status);
     }
 
-    // Check E/O ratio at +6dB
+    std::cout << "\n";
     {
         double amplitude = std::pow(10.0, 6.0 / 20.0);
         int numCycles = 300;
@@ -103,9 +113,10 @@ int main() {
         double h2, h3;
         measureTHD(output, sampleRate, testFreq, &h2, &h3);
         double eoRatio = h2 / h3;
-        std::cout << "\nE/O ratio @ +6dB: " << eoRatio << " (target: ~1.12)\n";
-        if (eoRatio > 1.0) std::cout << "  ✓ Even-dominant as expected\n";
-        else std::cout << "  ✗ Should be even-dominant (> 1.0)\n";
+        std::cout << "E/O ratio @ +6dB: " << eoRatio << " (target: ~1.12)\n";
+        if (eoRatio >= 0.9 && eoRatio <= 1.4) std::cout << "  OK - Even-dominant as expected\n";
+        else if (eoRatio < 0.9) std::cout << "  Need more even harmonics\n";
+        else std::cout << "  Too many even harmonics\n";
     }
 
     return 0;

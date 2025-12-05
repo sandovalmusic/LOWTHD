@@ -93,74 +93,79 @@ void HybridTapeProcessor::updateCachedValues()
 
     if (isAmpexMode) {
         // AMPEX ATR-102 (MASTER MODE)
-        // Target: MOL @ +12dB (3% THD), E/O ratio 0.503 (odd-dominant)
-        // Target THD @ 0dB: 0.3-0.5% (clean but not sterile)
-        // With parallel HF path, tune for 100Hz THD (minimal clean HF dilution)
+        // Real tape THD targets (cubic curve, 3dB/dB slope):
+        //   -6dB: 0.02%, 0dB: 0.08%, +6dB: 0.40%, +12dB: 3.0% (MOL)
+        // E/O ratio ~0.5 (odd-dominant)
         jaParams.M_s = 1.0;
         jaParams.a = 50.0;
-        jaParams.k = 0.005;        // Moderate k
-        jaParams.c = 0.96;         // High reversibility for clean character
-        jaParams.alpha = 2.0e-7;   // Low coupling
+        jaParams.k = 0.005;
+        jaParams.c = 0.96;
+        jaParams.alpha = 2.0e-7;
         jaCore.setParameters(jaParams);
         jaInputScale = 1.0;
-        jaOutputScale = 80.0;      // Moderate J-A contribution
+        jaOutputScale = 35.0;      // Lower J-A - Ampex is the "clean" machine
 
-        // Tanh is main saturation - tune for 0.3-0.5% THD at 0dB, MOL at +12dB
-        tanhDrive = 0.175;         // Main saturation drive
-        tanhAsymmetry = 1.15;      // Moderate asymmetry for E/O ~0.5
+        // Asymmetric tanh - compromise between -6dB and 0dB
+        tanhDrive = 0.068;         // Balanced
+        tanhAsymmetry = 1.23;      // Asymmetry for E/O ~0.5
         tanhBias = tanhAsymmetry - 1.0;
         tanhDcOffset = std::tanh(tanhDrive * tanhBias);
         double tanhNorm = tanhDrive * (1.0 - tanhDcOffset * tanhDcOffset);
         tanhNormFactor = (tanhNorm > 0.001) ? (1.0 / tanhNorm) : 1.0;
 
-        // J-A adds hysteresis character at higher levels
-        jaBlendMax = 0.70;         // Moderate J-A blend
-        jaBlendThreshold = 1.0;    // Engage at higher levels
-        jaBlendWidth = 2.5;        // Gradual transition
+        // J-A adds odd harmonics - lower for Ampex (clean machine)
+        jaBlendMax = 0.25;         // Lower J-A than Studer
+        jaBlendThreshold = 0.75;   // Engage around -3dB
+        jaBlendWidth = 3.0;        // Moderate transition
 
-        // Atan adds steeper knee at high levels to hit MOL at +12dB
-        atanDrive = 4.0;           // Reduced atan drive
-        atanMixMax = 0.60;         // Reduced atan contribution
-        atanThreshold = 2.5;       // Engage later (above +8dB)
-        atanWidth = 3.0;           // Very gradual transition
-        atanAsymmetry = 1.0;       // Symmetric for odd-dominant
-        useAsymmetricAtan = false;
+        // Asymmetric atan - earlier engage with wider ramp
+        atanDrive = 1.5;           // Lower drive
+        atanMixMax = 0.65;         // Higher max to compensate
+        atanThreshold = 0.40;      // Earlier engage (~-8dB)
+        atanWidth = 5.0;           // Wider transition for even spread
+        atanAsymmetry = 1.22;      // Match tanh for E/O ~0.5
+        useAsymmetricAtan = true;
+        atanBias = atanAsymmetry - 1.0;
+        atanDcOffset = std::atan(atanDrive * atanBias);
+        double driveBias = atanDrive * atanBias;
+        double atanNorm = atanDrive / (1.0 + driveBias * driveBias);
+        atanNormFactor = (atanNorm > 0.001) ? (1.0 / atanNorm) : 1.0;
 
-        // ATR-102: 0.25μm ceramic head gap = negligible gap-induced phase smear
+        // ATR-102: 0.25μm ceramic head gap
         dispersiveCornerFreq = 10000.0;
     } else {
         // STUDER A820 (TRACKS MODE)
-        // Target: MOL @ +9dB (3% THD), E/O ratio 1.122 (even-dominant)
-        // Target THD @ 0dB: ~1% (warmer than Ampex)
-        // With parallel HF path, tune for 100Hz THD (minimal clean HF dilution)
+        // Real tape THD targets (cubic curve, 3dB/dB slope):
+        //   -6dB: 0.07%, 0dB: 0.25%, +6dB: 1.25%, +9dB: 3.0% (MOL)
+        // E/O ratio ~1.12 (even-dominant)
         jaParams.M_s = 1.0;
-        jaParams.a = 45.0;         // Higher = less aggressive
-        jaParams.k = 0.008;        // Reduced for less high-level saturation
-        jaParams.c = 0.92;         // More reversible
-        jaParams.alpha = 5.0e-6;   // Reduced coupling
+        jaParams.a = 45.0;
+        jaParams.k = 0.008;
+        jaParams.c = 0.92;
+        jaParams.alpha = 5.0e-6;
         jaCore.setParameters(jaParams);
         jaInputScale = 1.0;
-        jaOutputScale = 100.0;     // Moderate output
+        jaOutputScale = 50.0;      // Higher J-A than Ampex for warmer feel
 
-        // Tanh: tune for ~1% THD at 0dB, MOL at +9dB
-        tanhDrive = 0.24;          // Moderate drive
-        tanhAsymmetry = 1.35;      // Higher asymmetry for E/O ~1.12
+        // Tanh for Studer's warmer character
+        tanhDrive = 0.095;         // Balanced
+        tanhAsymmetry = 1.42;      // Higher asymmetry for E/O ~1.12
         tanhBias = tanhAsymmetry - 1.0;
         tanhDcOffset = std::tanh(tanhDrive * tanhBias);
         double tanhNorm = tanhDrive * (1.0 - tanhDcOffset * tanhDcOffset);
         tanhNormFactor = (tanhNorm > 0.001) ? (1.0 / tanhNorm) : 1.0;
 
-        // J-A engages at moderate levels for warm character
-        jaBlendMax = 0.75;         // Moderate J-A
-        jaBlendThreshold = 0.8;    // Engage at moderate levels
-        jaBlendWidth = 2.5;        // Gradual transition
+        // J-A for feel - higher than Ampex for warmer Studer character
+        jaBlendMax = 0.40;         // Higher J-A than Ampex (0.25)
+        jaBlendThreshold = 0.6;    // Engage earlier
+        jaBlendWidth = 2.5;        // Moderate transition
 
-        // Atan: steeper knee at high levels only
-        atanDrive = 4.0;           // Moderate atan drive
-        atanMixMax = 0.65;         // Moderate atan contribution
-        atanThreshold = 2.0;       // Engage at higher levels (+6dB)
-        atanWidth = 2.5;           // Wide blend
-        atanAsymmetry = 1.20;      // Reduced asymmetry for E/O ~1.12
+        // Atan for curve - earlier engage with wider ramp
+        atanDrive = 2.0;           // Moderate drive
+        atanMixMax = 0.75;         // Higher max
+        atanThreshold = 0.40;      // Earlier engage (~-8dB)
+        atanWidth = 4.5;           // Wider transition for even spread
+        atanAsymmetry = 1.40;      // Asymmetry for E/O ~1.12
         useAsymmetricAtan = true;
         atanBias = atanAsymmetry - 1.0;
         atanDcOffset = std::atan(atanDrive * atanBias);
