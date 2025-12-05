@@ -51,38 +51,37 @@ void MachineEQ::reset()
 void MachineEQ::updateCoefficients()
 {
     // === Ampex ATR-102 "Master" EQ ===
-    // Fine-tuned to match Pro-Q4 reference:
-    // Targets: 20Hz=-2.7dB, 28Hz=0dB, 40Hz=+1.15dB, 70Hz=+0.17dB, 105Hz=+0.3dB, 150Hz=0dB,
-    //          350Hz=-0.5dB, 1200Hz=-0.3dB, 3kHz=-0.45dB, 10kHz=0dB, 16kHz=-0.25dB, 21.5kHz=0dB
+    // Targets from Jack Endino and EMC Published Specs:
+    // 20Hz=-2.7dB, 28Hz=0dB, 40Hz=+1.15dB, 70Hz=+0.17dB, 105Hz=+0.3dB, 150Hz=0dB,
+    // 300Hz=-0.5dB, 1kHz=0dB, 3kHz=-0.45dB, 5kHz=0dB, 10kHz=0dB, 16kHz=-0.25dB
     ampexHP.setHighPass(20.8, 0.7071, fs);      // HP for -2.7dB @ 20Hz
-    ampexBell1.setBell(28.0, 2.5, 0.4, fs);     // Reduced: 28Hz lift (was +1.0, now +0.4)
-    ampexBell2.setBell(40.0, 1.8, 0.95, fs);    // Reduced: +1.15dB @ 40Hz (was +1.35)
-    ampexBell3.setBell(70.0, 2.0, -0.3, fs);    // Cut to bring 70Hz closer to +0.17dB
-    ampexBell4.setBell(105.0, 2.0, 0.1, fs);    // Reduced: +0.3dB @ 105Hz (was +0.3)
-    ampexBell5.setBell(150.0, 2.0, -0.2, fs);   // Cut to bring 150Hz to 0dB
-    ampexBell6.setBell(300.0, 0.8, -0.55, fs);  // Increased cut: -0.5dB @ 350Hz
+    ampexBell1.setBell(28.0, 2.5, 0.4, fs);     // 28Hz lift
+    ampexBell2.setBell(40.0, 1.8, 0.95, fs);    // +1.15dB @ 40Hz
+    ampexBell3.setBell(70.0, 2.0, -0.3, fs);    // Cut for +0.17dB @ 70Hz
+    ampexBell4.setBell(105.0, 2.0, 0.1, fs);    // +0.3dB @ 105Hz
+    ampexBell5.setBell(150.0, 2.0, -0.2, fs);   // Cut for 0dB @ 150Hz
+    ampexBell6.setBell(300.0, 0.7, -0.8, fs);   // -0.5dB @ 300Hz (wider Q, more gain)
     ampexBell7.setBell(1200.0, 1.5, -0.25, fs); // -0.3dB @ 1200Hz
-    ampexBell8.setBell(3000.0, 1.2, -0.5, fs);  // Increased cut: -0.45dB @ 3kHz
-    ampexBell9.setBell(16000.0, 1.5, -0.5, fs); // Increased cut: -0.25dB @ 16kHz
-    ampexBell10.setBell(20000.0, 0.6, 0.3, fs); // Reduced HF lift
+    ampexBell8.setBell(3000.0, 1.0, -0.7, fs);  // -0.45dB @ 3kHz (wider Q, more gain)
+    ampexBell9.setBell(7000.0, 1.0, -0.3, fs);  // Cut 5-10kHz excess
+    ampexBell10.setBell(16000.0, 1.5, -0.4, fs);// -0.25dB @ 16kHz
     ampexLP.setLowPass(40000.0, fs);            // LP at 40kHz
 
     // === Studer A820 "Tracks" EQ ===
-    // 18dB/oct Butterworth HP = 2nd order (Q=1.0) + 1st order cascaded
-    // For 3rd order Butterworth, biquad Q = 1/(2*cos(60°)) = 1.0
-    studerHP1.setHighPass(22.0, 1.0, fs);       // Lowered to 22Hz for gentler LF rolloff
-    studerHP2.setHighPass(22.0, fs);            // 6 dB/oct (total 18 dB/oct)
-    // Head bumps at 49.5Hz and 110Hz per Pro-Q4 reference
-    // Targets: 30Hz=-2dB, 38Hz=0dB, 49.5Hz=+0.55dB, 69.5Hz=+0.1dB, 110Hz=+1.2dB, 260Hz=+0.05dB
-    //          400Hz=+0.1dB, 2kHz=+0.15dB, 5kHz=+0.05dB, 10kHz=+0.05dB, 15kHz=+0.18dB, 20kHz=+0.35dB
-    studerBell1.setBell(49.5, 1.5, 0.6, fs);    // First head bump (+0.55dB target)
-    studerBell2.setBell(72.0, 2.07, -1.0, fs);  // Dip between bumps
-    studerBell3.setBell(110.0, 1.0, 1.8, fs);   // Second head bump (+1.2dB target)
-    studerBell4.setBell(180.0, 1.0, -0.7, fs);  // Post-bump dip
-    studerBell5.setBell(400.0, 1.5, 0.1, fs);   // +0.1dB @ 400Hz
-    studerBell6.setBell(2000.0, 1.5, 0.15, fs); // +0.15dB @ 2kHz
-    studerBell7.setBell(10000.0, 2.5, -0.1, fs);// Slight cut at 10kHz
-    studerBell8.setBell(18000.0, 1.2, 0.2, fs); // Reduced HF rise
+    // Targets from Jack Endino and EMC Published Specs:
+    // 20Hz=-5dB, 28Hz=-2.5dB, 40Hz=0dB, 50Hz=+0.55dB, 70Hz=+0.1dB, 110Hz=+1.2dB
+    // 18dB/oct HP tuned to hit both 20Hz and 28Hz targets
+    studerHP1.setHighPass(22.0, 1.0, fs);       // 2nd order @ 22Hz
+    studerHP2.setHighPass(22.0, fs);            // 1st order @ 22Hz (total 18 dB/oct)
+    // Shape the rolloff and head bumps
+    studerBell1.setBell(28.0, 1.0, -2.0, fs);   // Cut at 28Hz for -2.5dB target
+    studerBell2.setBell(40.0, 2.0, 0.9, fs);    // Lift at 40Hz to counter HP rolloff
+    studerBell3.setBell(50.0, 1.5, 0.6, fs);    // First head bump at 50Hz (+0.55dB target)
+    studerBell4.setBell(70.0, 2.5, -0.6, fs);   // Dip at 70Hz
+    studerBell5.setBell(110.0, 1.0, 1.5, fs);   // Second head bump (+1.2dB target)
+    studerBell6.setBell(160.0, 1.5, -0.5, fs);  // Post-bump dip (moved lower)
+    studerBell7.setBell(2000.0, 1.5, 0.05, fs); // Subtle 2kHz boost
+    studerBell8.setBell(10000.0, 2.0, -0.1, fs);// Slight cut at 10kHz
 }
 
 double MachineEQ::processSample(double input)

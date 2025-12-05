@@ -74,12 +74,12 @@ The saturation blend adapts to input level via envelope follower with cubic smoo
 
 ### Machine EQ (Head Bump)
 
-Always-on EQ modeled from Jack Endino's Pro-Q4 measurements of real machines at 30 IPS:
+Always-on EQ modeled from Jack Endino and EMC Published Specs for real machines at 30 IPS:
 
 | Mode | Low End | Head Bump | Character |
 |------|---------|-----------|-----------|
-| **Ampex** | HP @ 20.8Hz | +1.0dB @ 40Hz | -2.8dB @ 20Hz, slight mid cut |
-| **Studer** | 18dB/oct HP @ 22Hz | +0.6dB @ 50Hz, +1.8dB @ 110Hz | Dual head bump, -4.4dB @ 20Hz |
+| **Ampex** | HP @ 20.8Hz | +1.1dB @ 40Hz | -2.7dB @ 20Hz, -0.5dB @ 300Hz, -0.4dB @ 3kHz |
+| **Studer** | 18dB/oct HP @ 22Hz | +0.6dB @ 50Hz, +1.2dB @ 110Hz | Dual head bump, -5dB @ 20Hz, -2.5dB @ 28Hz |
 
 ### HF Phase Smear
 

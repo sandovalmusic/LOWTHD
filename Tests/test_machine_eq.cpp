@@ -31,7 +31,7 @@ int main() {
 
     double testFreqs[] = {20, 28, 40, 70, 105, 150, 300, 500, 1000, 2000, 3000, 5000, 10000, 16000, 20000};
 
-    std::cout << "=== MachineEQ Frequency Response (Jack Endino Measurements) ===\n\n";
+    std::cout << "=== MachineEQ Frequency Response (Jack Endino & EMC Specs) ===\n\n";
 
     for (int machine = 0; machine < 2; ++machine) {
         bool isAmpex = (machine == 0);
@@ -112,7 +112,7 @@ int main() {
         }
     }
 
-    std::cout << "\n✓ Machine EQ tuned to match Jack Endino Pro-Q4 measurements\n";
+    std::cout << "\n✓ Machine EQ tuned to match Jack Endino & EMC Published Specs\n";
 
     return 0;
 }
