@@ -39,23 +39,28 @@ LOWTHD models the tape and heads, not the amplifiers that were designed to stay 
 
 ### AC Bias Shielding (Parallel Clean HF Path)
 
-Real tape uses AC bias (~150kHz oscillator) to linearize magnetic response. Higher bias frequency = better HF preservation (less self-erasure). LOWTHD simulates this with a **parallel path architecture**:
+Real tape uses AC bias (~150kHz oscillator) to linearize the magnetic recording process. The bias signal "shields" high frequencies from nonlinear distortion—higher bias frequency = better HF linearity.
+
+**Why parallel paths?** On real tape, HF content genuinely experiences less distortion because the bias keeps the magnetic particles in their linear operating region. A simple EQ cut/boost would still saturate the HF content and then try to restore it—that's not what happens on tape. Our parallel architecture models the actual physics:
 
 ```
-Input ──┬── HFCut ─────────→ Saturation ──┬── Output
+Input ──┬── HFCut ─────────→ Saturation ──┬── Sum → Output
         │                                  │
-        └── (Input - HFCut) ──────────────┘
-             "Clean HF Path"
+        └── (Input - HFCut) ───────────────┘
+             Clean HF (no saturation)
 ```
 
-The clean HF path bypasses saturation entirely—just like AC bias protects high frequencies on real tape. This maintains flat frequency response while applying saturation only to LF/mid content.
+- **HFCut path**: LF/mid content goes through full saturation chain
+- **Clean HF path**: High frequencies bypass saturation entirely, then sum back in
 
-| Machine | Bias Frequency | Flat Through | @ 20kHz |
-|---------|---------------|-------------|---------|
-| **Ampex ATR-102** | 432 kHz | 8kHz | -8dB cut before saturation |
-| **Studer A820** | 153.6 kHz | 6kHz | -12dB cut before saturation |
+This creates frequency-dependent THD that matches real machines: full saturation on lows/mids, progressively less distortion at higher frequencies where bias is most effective.
 
-The ATR-102's exceptionally high 432 kHz bias (vs typical 150 kHz) was a major engineering achievement—it's why the machine was known for pristine HF response.
+| Machine | Bias Frequency | HF Saturation Reduction |
+|---------|---------------|------------------------|
+| **Ampex ATR-102** | 432 kHz | -8dB @ 20kHz (flat to 8kHz) |
+| **Studer A820** | 153.6 kHz | -12dB @ 20kHz (flat to 6kHz) |
+
+The ATR-102's exceptionally high 432 kHz bias was a major engineering achievement—it's why the machine was known for pristine HF response even when driven hard.
 
 ### Saturation Architecture
 
