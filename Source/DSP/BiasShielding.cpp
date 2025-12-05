@@ -149,87 +149,42 @@ void HFRestore::updateCoefficients()
 
     double shelf1Freq, shelf1Gain, shelf1Q;
     double shelf2Freq, shelf2Gain, shelf2Q;
-    double bell1Freq, bell1Gain, bell1Q;
-    double bell2Freq, bell2Gain, bell2Q;
-    double bell3Freq, bell3Gain, bell3Q;
 
     if (ampexMode)
     {
-        // AMPEX ATR-102 HF Restore
-        // -------------------------
-        // 432 kHz bias frequency - exceptionally high
-        // Best HF performance of any analog tape machine
-        // Target: Flat to 8kHz, gentle rise to +8dB at 20kHz
-        //
-        // The very high bias frequency means minimal self-erasure
-        // and excellent HF linearity - less correction needed.
+        // AMPEX ATR-102 HF Restore (exact inverse of HFCut)
+        // ---------------------------------------------------------
+        // Matches HFCut: Flat to 8kHz, gentle rise to +8dB at 20kHz
 
-        // Shelf 1: Main HF restoration starting at 12kHz
-        shelf1Freq = std::min(12000.0, nyquist * 0.9);
-        shelf1Gain = +5.5;
-        shelf1Q = 1.0;
+        shelf1Freq = std::min(8000.0, nyquist * 0.9);
+        shelf1Gain = +4.0;
+        shelf1Q = 0.7;
 
-        // Shelf 2: Top octave at 18kHz
-        shelf2Freq = std::min(18000.0, nyquist * 0.85);
-        shelf2Gain = +2.5;
-        shelf2Q = 0.85;
-
-        // Bell 1: Gentle transition at 10kHz
-        bell1Freq = std::min(10000.0, nyquist * 0.9);
-        bell1Gain = +0.3;
-        bell1Q = 1.8;
-
-        // Bell 2: Top end at 19kHz
-        bell2Freq = std::min(19000.0, nyquist * 0.9);
-        bell2Gain = +0.8;
-        bell2Q = 0.8;
-
-        // Bell 3: Keep 8kHz flat
-        bell3Freq = 8000.0;
-        bell3Gain = -0.2;
-        bell3Q = 2.5;
+        shelf2Freq = std::min(14000.0, nyquist * 0.85);
+        shelf2Gain = +4.0;
+        shelf2Q = 0.7;
     }
     else
     {
-        // STUDER A820 HF Restore
-        // -----------------------
-        // 153.6 kHz bias frequency - typical professional standard
-        // Target: Flat to 6kHz, steeper rise to +12dB at 20kHz
-        //
-        // Lower bias frequency means more self-erasure at HF,
-        // requiring more aggressive HF restoration.
+        // STUDER A820 HF Restore (exact inverse of HFCut)
+        // -------------------------------------------------------
+        // Matches HFCut: Flat to 6kHz, moderate rise to +12dB at 20kHz
 
-        // Shelf 1: Main HF restoration starting at 9kHz
-        shelf1Freq = std::min(9000.0, nyquist * 0.9);
-        shelf1Gain = +7.5;
-        shelf1Q = 1.0;
+        shelf1Freq = std::min(6000.0, nyquist * 0.9);
+        shelf1Gain = +6.0;
+        shelf1Q = 0.7;
 
-        // Shelf 2: Top octave at 16kHz
-        shelf2Freq = std::min(16000.0, nyquist * 0.85);
-        shelf2Gain = +4.5;
-        shelf2Q = 0.85;
-
-        // Bell 1: Transition at 7kHz
-        bell1Freq = std::min(7000.0, nyquist * 0.9);
-        bell1Gain = +0.5;
-        bell1Q = 1.8;
-
-        // Bell 2: Top end push at 19kHz
-        bell2Freq = std::min(19000.0, nyquist * 0.9);
-        bell2Gain = +1.5;
-        bell2Q = 0.7;
-
-        // Bell 3: Keep 6kHz flat
-        bell3Freq = 6000.0;
-        bell3Gain = -0.3;
-        bell3Q = 2.2;
+        shelf2Freq = std::min(12000.0, nyquist * 0.85);
+        shelf2Gain = +6.0;
+        shelf2Q = 0.7;
     }
 
     TapeHysteresis::designHighShelf(shelf1, shelf1Freq, shelf1Gain, shelf1Q, fs);
     TapeHysteresis::designHighShelf(shelf2, shelf2Freq, shelf2Gain, shelf2Q, fs);
-    TapeHysteresis::designBell(bell1, bell1Freq, bell1Gain, bell1Q, fs);
-    TapeHysteresis::designBell(bell2, bell2Freq, bell2Gain, bell2Q, fs);
-    TapeHysteresis::designBell(bell3, bell3Freq, bell3Gain, bell3Q, fs);
+    // Bell filters set to unity (no effect)
+    bell1.b0 = 1.0; bell1.b1 = 0; bell1.b2 = 0; bell1.a1 = 0; bell1.a2 = 0;
+    bell2.b0 = 1.0; bell2.b1 = 0; bell2.b2 = 0; bell2.a1 = 0; bell2.a2 = 0;
+    bell3.b0 = 1.0; bell3.b1 = 0; bell3.b2 = 0; bell3.a1 = 0; bell3.a2 = 0;
 }
 
 double HFRestore::processSample(double input)
@@ -282,70 +237,48 @@ void HFCut::updateCoefficients()
 
     double shelf1Freq, shelf1Gain, shelf1Q;
     double shelf2Freq, shelf2Gain, shelf2Q;
-    double bell1Freq, bell1Gain, bell1Q;
-    double bell2Freq, bell2Gain, bell2Q;
-    double bell3Freq, bell3Gain, bell3Q;
 
     if (ampexMode)
     {
-        // AMPEX ATR-102 HF Cut (EXACT INVERSE of HF Restore)
+        // AMPEX ATR-102 HF Cut (30 IPS, AES EQ)
         // ---------------------------------------------------------
-        // 432 kHz bias - minimal HF cut needed
-        // Target: Flat to 8kHz, -8dB at 20kHz
+        // 432 kHz bias provides excellent HF linearity
+        // At 30 IPS with AES EQ: very flat response, minimal pre-emphasis needed
+        // Bias ratio: 432kHz / 20kHz = 21.6:1 (well above 5:1 rule)
+        // Target: Flat to 8kHz, gentle roll to -8dB at 20kHz
 
-        shelf1Freq = std::min(12000.0, nyquist * 0.9);
-        shelf1Gain = -5.5;
-        shelf1Q = 1.0;
+        shelf1Freq = std::min(8000.0, nyquist * 0.9);
+        shelf1Gain = -4.0;
+        shelf1Q = 0.7;
 
-        shelf2Freq = std::min(18000.0, nyquist * 0.85);
-        shelf2Gain = -2.5;
-        shelf2Q = 0.85;
-
-        bell1Freq = std::min(10000.0, nyquist * 0.9);
-        bell1Gain = -0.3;
-        bell1Q = 1.8;
-
-        bell2Freq = std::min(19000.0, nyquist * 0.9);
-        bell2Gain = -0.8;
-        bell2Q = 0.8;
-
-        bell3Freq = 8000.0;
-        bell3Gain = +0.2;
-        bell3Q = 2.5;
+        shelf2Freq = std::min(14000.0, nyquist * 0.85);
+        shelf2Gain = -4.0;
+        shelf2Q = 0.7;
     }
     else
     {
-        // STUDER A820 HF Cut (EXACT INVERSE of HF Restore)
+        // STUDER A820 HF Cut (30 IPS, AES EQ)
         // -------------------------------------------------------
-        // 153.6 kHz bias - more HF cut needed
-        // Target: Flat to 6kHz, -12dB at 20kHz
+        // 153.6 kHz bias - still excellent but less margin than ATR-102
+        // At 30 IPS with AES EQ: flat response, slightly more pre-emphasis
+        // Bias ratio: 153.6kHz / 20kHz = 7.7:1 (above 5:1 but less margin)
+        // Target: Flat to 6kHz, moderate roll to -12dB at 20kHz
 
-        shelf1Freq = std::min(9000.0, nyquist * 0.9);
-        shelf1Gain = -7.5;
-        shelf1Q = 1.0;
+        shelf1Freq = std::min(6000.0, nyquist * 0.9);
+        shelf1Gain = -6.0;
+        shelf1Q = 0.7;
 
-        shelf2Freq = std::min(16000.0, nyquist * 0.85);
-        shelf2Gain = -4.5;
-        shelf2Q = 0.85;
-
-        bell1Freq = std::min(7000.0, nyquist * 0.9);
-        bell1Gain = -0.5;
-        bell1Q = 1.8;
-
-        bell2Freq = std::min(19000.0, nyquist * 0.9);
-        bell2Gain = -1.5;
-        bell2Q = 0.7;
-
-        bell3Freq = 6000.0;
-        bell3Gain = +0.3;
-        bell3Q = 2.2;
+        shelf2Freq = std::min(12000.0, nyquist * 0.85);
+        shelf2Gain = -6.0;
+        shelf2Q = 0.7;
     }
 
     TapeHysteresis::designHighShelf(shelf1, shelf1Freq, shelf1Gain, shelf1Q, fs);
     TapeHysteresis::designHighShelf(shelf2, shelf2Freq, shelf2Gain, shelf2Q, fs);
-    TapeHysteresis::designBell(bell1, bell1Freq, bell1Gain, bell1Q, fs);
-    TapeHysteresis::designBell(bell2, bell2Freq, bell2Gain, bell2Q, fs);
-    TapeHysteresis::designBell(bell3, bell3Freq, bell3Gain, bell3Q, fs);
+    // Bell filters set to unity (no effect)
+    bell1.b0 = 1.0; bell1.b1 = 0; bell1.b2 = 0; bell1.a1 = 0; bell1.a2 = 0;
+    bell2.b0 = 1.0; bell2.b1 = 0; bell2.b2 = 0; bell2.a1 = 0; bell2.a2 = 0;
+    bell3.b0 = 1.0; bell3.b1 = 0; bell3.b2 = 0; bell3.a1 = 0; bell3.a2 = 0;
 }
 
 double HFCut::processSample(double input)

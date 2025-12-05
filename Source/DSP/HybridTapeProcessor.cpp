@@ -96,6 +96,7 @@ void HybridTapeProcessor::updateCachedValues()
     if (isAmpexMode) {
         // AMPEX ATR-102 (MASTER MODE)
         // Target: MOL @ +12dB (3% THD), E/O ratio 0.503 (odd-dominant)
+        // Ampex is the CLEANER machine - higher headroom, lower THD at 0dB
         jaParams.M_s = 1.0;
         jaParams.a = 50.0;
         jaParams.k = 0.005;
@@ -103,35 +104,35 @@ void HybridTapeProcessor::updateCachedValues()
         jaParams.alpha = 1.0e-6;
         jaCore.setParameters(jaParams);
         jaInputScale = 1.0;
-        jaOutputScale = 150.0;
+        jaOutputScale = 180.0;     // Increased significantly for +12dB MOL
 
-        // Tuned for MOL @ +12dB with E/O ~0.5
-        // Strategy: tanh for level + atan steepening for curve shape
-        tanhDrive = 0.20;          // Target 3% THD at +12dB
-        tanhAsymmetry = 1.12;      // Reduced for E/O closer to 0.5 at operating levels
+        // Currently at +18dB MOL, need to hit +12dB (6dB more saturation)
+        // That's roughly 2x the saturation, so increase drives substantially
+        tanhDrive = 0.22;          // Doubled from 0.14 for +12dB MOL
+        tanhAsymmetry = 1.18;      // More asymmetry for E/O ~0.5
         tanhBias = tanhAsymmetry - 1.0;
         tanhDcOffset = std::tanh(tanhDrive * tanhBias);
         double tanhNorm = tanhDrive * (1.0 - tanhDcOffset * tanhDcOffset);
         tanhNormFactor = (tanhNorm > 0.001) ? (1.0 / tanhNorm) : 1.0;
 
-        jaBlendMax = 1.00;         // Full J-A blend
-        jaBlendThreshold = 0.50;   // Lower to engage J-A earlier
-        jaBlendWidth = 2.0;        // Wider blend for smoother transition
+        jaBlendMax = 0.95;         // Higher J-A for more saturation
+        jaBlendThreshold = 0.45;   // Lower threshold - engage earlier
+        jaBlendWidth = 2.0;        // Faster blend
 
-        atanDrive = 6.5;           // Increased for steeper curve at high levels
-        atanMixMax = 0.75;         // More atan contribution
-        atanThreshold = 0.35;      // Engage earlier for cubic shape
+        atanDrive = 7.0;           // Higher drive for steeper curve
+        atanMixMax = 0.80;         // More atan for compression
+        atanThreshold = 0.35;      // Lower threshold - engage earlier
         atanWidth = 2.0;           // Tighter blend
-        atanAsymmetry = 1.0;
+        atanAsymmetry = 1.0;       // Symmetric for odd-dominant
         useAsymmetricAtan = false;
 
         // ATR-102: 0.25μm ceramic head gap = negligible gap-induced phase smear
         // Transformerless config - minimal electronics contribution
-        // Only EQ circuits contribute - very subtle, high-frequency-only smear
         dispersiveCornerFreq = 10000.0;
     } else {
         // STUDER A820 (TRACKS MODE)
         // Target: MOL @ +9dB (3% THD), E/O ratio 1.122 (even-dominant)
+        // Studer is the WARMER machine - lower headroom, higher THD at 0dB
         jaParams.M_s = 1.0;
         jaParams.a = 35.0;
         jaParams.k = 0.01;
@@ -139,26 +140,25 @@ void HybridTapeProcessor::updateCachedValues()
         jaParams.alpha = 1.0e-5;
         jaCore.setParameters(jaParams);
         jaInputScale = 1.0;
-        jaOutputScale = 105.0;
+        jaOutputScale = 120.0;     // Reduced - was hitting MOL at +5.5dB (too hot)
 
-        // Tuned for MOL @ +9dB with E/O ~1.12
-        // Strategy: tanhAsymmetry for E/O, atan for curve steepening
-        tanhDrive = 0.12;          // Fine-tuned for MOL @ +9dB
-        tanhAsymmetry = 1.38;      // Tuned for E/O = 1.122
+        // Currently hitting 3% at +5.5dB, need to reduce drive to hit +9dB
+        tanhDrive = 0.12;          // Reduced from 0.18 for +9dB MOL
+        tanhAsymmetry = 1.35;      // Keep for E/O ~1.12
         tanhBias = tanhAsymmetry - 1.0;
         tanhDcOffset = std::tanh(tanhDrive * tanhBias);
         double tanhNorm = tanhDrive * (1.0 - tanhDcOffset * tanhDcOffset);
         tanhNormFactor = (tanhNorm > 0.001) ? (1.0 / tanhNorm) : 1.0;
 
-        jaBlendMax = 1.00;         // Full J-A blend
-        jaBlendThreshold = 0.45;   // Engage J-A earlier for smoother curve
-        jaBlendWidth = 2.5;        // Wider blend for gradual transition
+        jaBlendMax = 0.95;         // High J-A for warmer character
+        jaBlendThreshold = 0.45;   // Moderate threshold
+        jaBlendWidth = 2.2;        // Moderate transition
 
-        atanDrive = 5.5;           // Moderate curve steepening
-        atanMixMax = 0.72;         // Moderate atan contribution
-        atanThreshold = 0.35;      // Earlier engagement for smoother curve
-        atanWidth = 2.5;           // Wider blend for smoother transition
-        atanAsymmetry = 1.42;      // For Studer's even-harmonic character (E/O 1.122)
+        atanDrive = 5.0;           // Reduced for higher headroom
+        atanMixMax = 0.70;         // Moderate atan contribution
+        atanThreshold = 0.35;      // Moderate threshold
+        atanWidth = 2.2;           // Moderate blend
+        atanAsymmetry = 1.40;      // Asymmetric for even-harmonic character
         useAsymmetricAtan = true;
         atanBias = atanAsymmetry - 1.0;
         atanDcOffset = std::atan(atanDrive * atanBias);
@@ -166,8 +166,7 @@ void HybridTapeProcessor::updateCachedValues()
         double atanNorm = atanDrive / (1.0 + driveBias * driveBias);
         atanNormFactor = (atanNorm > 0.001) ? (1.0 / atanNorm) : 1.0;
 
-        // A820: 3μm head gap = phase smear onset ~25kHz from head + electronics
-        // More pronounced smear starting lower in frequency
+        // A820: 3μm head gap = phase smear onset lower in frequency
         dispersiveCornerFreq = 2800.0;
     }
 
