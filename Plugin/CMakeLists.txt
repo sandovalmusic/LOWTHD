@@ -5,6 +5,11 @@ project(TapeHysteresis VERSION 1.1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Use static runtime on Windows for distribution (no MSVC runtime dependency)
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 # Fetch JUCE (8.0.4 for macOS 15 compatibility)
 include(FetchContent)
 FetchContent_Declare(
