@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <algorithm>  // for std::clamp
 
 //==============================================================================
 LowTHDTapeSimulatorAudioProcessor::LowTHDTapeSimulatorAudioProcessor()
