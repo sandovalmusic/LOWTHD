@@ -25,6 +25,9 @@ cmake-build-*/
 THDValidator
 Test_*
 !Test_*.cpp
+param_search
+test_*
+!test_*.cpp
 
 # Misc
 *.txt
