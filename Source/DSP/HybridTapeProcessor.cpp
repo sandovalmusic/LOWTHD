@@ -105,9 +105,9 @@ void HybridTapeProcessor::updateCachedValues()
         jaCore.setParameters(jaParams);
         jaInputScale = 1.0;
         jaOutputScale = 50.0;
-        jaBlendMax = 0.005;        // Very small - tune for -6dB ~0.02%
-        jaBlendThreshold = 0.05;
-        jaBlendWidth = 0.45;
+        jaBlendMax = 0.0045;       // Very small - tune for -6dB ~0.02%
+        jaBlendThreshold = 0.06;
+        jaBlendWidth = 0.44;
 
         // === LAYER 2: Atan (symmetric now - bias is global) ===
         atanMix = 0.25;
@@ -116,7 +116,14 @@ void HybridTapeProcessor::updateCachedValues()
         atanDrive = 0.6;
 
         // Global input bias for E/O ~0.5 (odd-dominant)
-        inputBias = 0.06;           // Small bias for Ampex
+        inputBias = 0.055;          // Small bias for Ampex
+
+        // Hermite spline for cubic THD scaling
+        // Equivalent to smoothstep when M0=M1=0
+        hermiteP0 = 0.0;
+        hermiteP1 = 1.0;
+        hermiteM0 = 0.0;
+        hermiteM1 = 0.0;
 
         dispersiveCornerFreq = 10000.0;
     } else {
@@ -133,9 +140,9 @@ void HybridTapeProcessor::updateCachedValues()
         jaCore.setParameters(jaParams);
         jaInputScale = 1.0;
         jaOutputScale = 50.0;
-        jaBlendMax = 0.012;        // More than Ampex - tune for -6dB ~0.07%
-        jaBlendThreshold = 0.02;
-        jaBlendWidth = 0.48;
+        jaBlendMax = 0.0115;       // More than Ampex - tune for -6dB ~0.07%
+        jaBlendThreshold = 0.032;
+        jaBlendWidth = 0.468;
 
         // === LAYER 2: Atan (symmetric now - bias is global) ===
         atanMix = 0.35;
@@ -144,7 +151,14 @@ void HybridTapeProcessor::updateCachedValues()
         atanDrive = 0.95;
 
         // Global input bias for E/O ~1.12 (even-dominant)
-        inputBias = 0.22;           // Larger bias for Studer's even-dominant character
+        inputBias = 0.21;           // Larger bias for Studer's even-dominant character
+
+        // Hermite spline for cubic THD scaling
+        // Equivalent to smoothstep when M0=M1=0
+        hermiteP0 = 0.0;
+        hermiteP1 = 1.0;
+        hermiteM0 = 0.0;
+        hermiteM1 = 0.0;
 
         dispersiveCornerFreq = 2800.0;
     }
@@ -178,11 +192,11 @@ double HybridTapeProcessor::processSample(double input)
         jaEnvelope += 0.020 * (absGained - jaEnvelope);
     }
 
-    // J-A blend - can be constant or level-dependent
+    // J-A blend - Hermite spline for precise THD curve control
     double jaBlend;
     if (jaBlendWidth > 0.0) {
         double blendRatio = std::clamp((jaEnvelope - jaBlendThreshold) / jaBlendWidth, 0.0, 1.0);
-        jaBlend = jaBlendMax * blendRatio * blendRatio * (3.0 - 2.0 * blendRatio);
+        jaBlend = jaBlendMax * hermiteBlend(blendRatio);
     } else {
         jaBlend = jaBlendMax;  // Constant blend when width = 0
     }
@@ -215,8 +229,9 @@ double HybridTapeProcessor::processSample(double input)
     double mainPath = hfCutSignal * (1.0 - jaBlend) + jaPath * jaBlend;
 
     // Level-dependent atan blend (engages at higher levels where J-A drops off)
+    // Uses Hermite spline for consistent THD curve shaping
     double atanBlendRatio = std::clamp((jaEnvelope - atanThreshold) / atanWidth, 0.0, 1.0);
-    double atanBlend = atanMix * atanBlendRatio * atanBlendRatio * (3.0 - 2.0 * atanBlendRatio);
+    double atanBlend = atanMix * hermiteBlend(atanBlendRatio);
     double saturatedPath = mainPath * (1.0 - atanBlend) + atanOut * atanBlend;
 
     // === COMBINE PATHS ===
@@ -243,6 +258,23 @@ double HybridTapeProcessor::softAtan(double x)
 {
     if (atanDrive < 0.001) return x;
     return std::atan(atanDrive * x) / atanDrive;
+}
+
+double HybridTapeProcessor::hermiteBlend(double t)
+{
+    // Hermite spline interpolation for THD curve shaping
+    // Allows fine control over the saturation blend curve slope
+    // For cubic behavior (2x THD per 3dB), we need specific tangent values
+    double t2 = t * t;
+    double t3 = t2 * t;
+
+    // Hermite basis functions
+    double h00 = 2.0 * t3 - 3.0 * t2 + 1.0;  // (1 - t)^2 * (1 + 2t)
+    double h10 = t3 - 2.0 * t2 + t;           // t * (1 - t)^2
+    double h01 = -2.0 * t3 + 3.0 * t2;        // t^2 * (3 - 2t)
+    double h11 = t3 - t2;                      // t^2 * (t - 1)
+
+    return h00 * hermiteP0 + h10 * hermiteM0 + h01 * hermiteP1 + h11 * hermiteM1;
 }
 
 double HybridTapeProcessor::processRightChannel(double input)

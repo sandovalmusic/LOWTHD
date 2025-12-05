@@ -78,6 +78,13 @@ private:
     double jaBlendWidth = 2.5;
     double jaEnvelope = 0.0;
 
+    // Hermite spline control points for THD curve shaping
+    // Controls the slope of THD vs level (target: 2x per 3dB = cubic behavior)
+    double hermiteP0 = 0.0;   // Start value
+    double hermiteP1 = 1.0;   // End value
+    double hermiteM0 = 0.0;   // Start tangent
+    double hermiteM1 = 0.0;   // End tangent
+
     // DC blocking (4th-order Butterworth @ 5Hz)
     struct Biquad {
         double b0 = 1.0, b1 = 0.0, b2 = 0.0;
@@ -127,6 +134,7 @@ private:
 
     void updateCachedValues();
     double softAtan(double x);
+    double hermiteBlend(double t);  // Hermite spline for THD curve shaping
 };
 
 } // namespace TapeHysteresis
