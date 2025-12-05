@@ -36,14 +36,18 @@ namespace TapeHysteresis
  *
  * Signal Flow:
  *   1. Input gain
- *   2. HF Cut (AC bias shielding) - cut highs before saturation
- *   3. J-A hysteresis path (magnetic memory)
- *   4. Asymmetric tanh saturation path (THD curve + E/O ratio)
- *   5. Level-dependent parallel blend of J-A and tanh paths
- *   6. HF Restore (AC bias shielding inverse) - restore highs after saturation
- *   7. Machine EQ (Jack Endino measurements) - optional "Tape Bump"
- *   8. HF dispersive allpass (tape head phase smear)
- *   9. DC blocking (4th-order @ 5Hz)
+ *   2. Split into two parallel paths:
+ *      a. SATURATION PATH: HFCut -> J-A/Tanh saturation blend
+ *      b. CLEAN HF PATH: (Input - HFCut output) = shielded HF (bypasses saturation)
+ *   3. Sum saturation path + clean HF path
+ *   4. Machine EQ (Jack Endino measurements)
+ *   5. HF dispersive allpass (tape head phase smear)
+ *   6. DC blocking (4th-order @ 5Hz)
+ *
+ * The parallel HF path models AC bias shielding: higher bias frequencies
+ * (ATR-102: 432kHz, A820: 153.6kHz) linearize HF recording, reducing HF THD.
+ * The "shielded" HF content bypasses saturation entirely, resulting in
+ * lower THD at high frequencies - matching real machine behavior.
  *
  * The hybrid approach provides:
  *   - Correct THD vs level curve (from tanh)
@@ -151,9 +155,15 @@ private:
     Biquad dcBlocker1, dcBlocker2;
 
     // AC Bias Shielding (models 30 IPS bias effectiveness)
-    // HFCut before saturation, HFRestore after (both paths see same EQ)
-    HFRestore hfRestore;
+    // HFCut extracts HF to bypass saturation (parallel clean HF path)
+    // No HFRestore needed - clean HF is summed directly with saturated signal
     HFCut hfCut;
+
+    // Clean HF blend control (0.0 = all saturated, 1.0 = all clean HF)
+    // Higher values = more HF protection (lower HF THD)
+    // Ampex (432kHz bias): ~1.0 (excellent HF protection)
+    // Studer (153.6kHz bias): ~1.0 (good HF protection, but more saturation elsewhere)
+    double cleanHfBlend = 1.0;
 
     // HF dispersive allpass - creates frequency-dependent phase shift
     // Emulates tape head phase smear ("soft focus" effect on transients)

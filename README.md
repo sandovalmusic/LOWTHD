@@ -34,41 +34,51 @@ LOWTHD models the tape and heads, not the amplifiers that were designed to stay 
 
 | Mode | Machine | Character | THD @ 0dB | E/O Ratio |
 |------|---------|-----------|-----------|-----------|
-| **Master** | Ampex ATR-102 | Cleaner, faster, odd-dominant | ~0.38% | 0.54 |
-| **Tracks** | Studer A820 | Softer, warmer, even-dominant | ~0.49% | 1.20 |
+| **Master** | Ampex ATR-102 | Cleaner, faster, odd-dominant | ~0.32% | 0.45 |
+| **Tracks** | Studer A820 | Softer, warmer, even-dominant | ~0.95% | 1.06 |
 
-### AC Bias Shielding
+### AC Bias Shielding (Parallel Clean HF Path)
 
-Real tape uses AC bias to linearize magnetic response. Higher bias frequency = better HF preservation (less self-erasure). We simulate this with de-emphasis before saturation, re-emphasis after:
+Real tape uses AC bias (~150kHz oscillator) to linearize magnetic response. Higher bias frequency = better HF preservation (less self-erasure). LOWTHD simulates this with a **parallel path architecture**:
+
+```
+Input ──┬── HFCut ─────────→ Saturation ──┬── Output
+        │                                  │
+        └── (Input - HFCut) ──────────────┘
+             "Clean HF Path"
+```
+
+The clean HF path bypasses saturation entirely—just like AC bias protects high frequencies on real tape. This maintains flat frequency response while applying saturation only to LF/mid content.
 
 | Machine | Bias Frequency | Flat Through | @ 20kHz |
 |---------|---------------|-------------|---------|
-| **Ampex ATR-102** | 432 kHz | 8kHz | -8dB |
-| **Studer A820** | 153.6 kHz | 6kHz | -12dB |
+| **Ampex ATR-102** | 432 kHz | 8kHz | -8dB cut before saturation |
+| **Studer A820** | 153.6 kHz | 6kHz | -12dB cut before saturation |
 
-The ATR-102's exceptionally high 432 kHz bias (vs typical 150 kHz) was a major engineering achievement—it's why the machine was known for pristine HF response. The Studer uses standard professional bias frequency.
-
-Result: HF content experiences less saturation (protected by simulated bias), while lows/mids get full tape character.
+The ATR-102's exceptionally high 432 kHz bias (vs typical 150 kHz) was a major engineering achievement—it's why the machine was known for pristine HF response.
 
 ### Saturation Architecture
 
-Three complementary stages:
-1. **Jiles-Atherton Hysteresis** — Physics-based magnetic domain model (Newton-Raphson solver, 8-iteration limit). Blends in at higher levels.
-2. **Asymmetric Tanh** — Primary harmonic generation with even/odd balance control
-3. **Level-Dependent Atan** — Soft-clipping at high levels for MOL targeting
+Three complementary stages with level-dependent blending:
+
+1. **Asymmetric Tanh** — Primary saturation curve with even/odd harmonic balance control
+2. **Jiles-Atherton Hysteresis** — Physics-based magnetic domain model, blends in at higher levels for authentic tape compression
+3. **Level-Dependent Atan** — Soft-clipping knee at high levels for MOL targeting
+
+The saturation blend adapts to input level via envelope follower with cubic smoothstep transitions.
 
 ### Machine EQ (Head Bump)
 
-Always-on EQ modeled from real machines at 30 IPS:
+Always-on EQ modeled from Jack Endino's Pro-Q4 measurements of real machines at 30 IPS:
 
-| Mode | Low End | Head Bump |
-|------|---------|-----------|
-| **Ampex** | 12dB/oct HP @ 20Hz | +1.15dB @ 40Hz |
-| **Studer** | 18dB/oct HP @ 27Hz | +0.7dB @ 50Hz, +1.2dB @ 110Hz |
+| Mode | Low End | Head Bump | Character |
+|------|---------|-----------|-----------|
+| **Ampex** | HP @ 20.8Hz | +1.0dB @ 40Hz | -2.8dB @ 20Hz, slight mid cut |
+| **Studer** | 18dB/oct HP @ 22Hz | +0.6dB @ 50Hz, +1.8dB @ 110Hz | Dual head bump, -4.4dB @ 20Hz |
 
 ### HF Phase Smear
 
-Head gap geometry creates frequency-dependent phase shifts. Corner frequencies based on actual head specs:
+Head gap geometry creates frequency-dependent phase shifts via cascaded allpass filters. Corner frequencies based on actual head specs:
 
 | Machine | Head Gap | Corner Freq |
 |---------|----------|-------------|
@@ -94,9 +104,9 @@ Head gap geometry creates frequency-dependent phase shifts. Corner frequencies b
 
 LOWTHD uses extremely level-dependent saturation tuned for realistic levels (-6dB to +3dB). The cumulative effect of subtle colorations creates the "tape sound":
 
-- Hysteresis: ~0.01-0.05% THD with frequency-dependent phase
-- Asymmetric saturation: <1% controlled harmonics
-- AC bias shielding: up to 12dB frequency-dependent saturation difference
+- Asymmetric saturation: <1% controlled harmonics at 0dB
+- Jiles-Atherton hysteresis: Physics-based compression at higher levels
+- AC bias shielding: HF bypasses saturation (parallel clean path)
 - Head bump: +1-2dB low frequency lift
 - Phase smear: 10-21μs transient softening
 - Azimuth: 8-12μs stereo decorrelation
@@ -105,25 +115,27 @@ LOWTHD uses extremely level-dependent saturation tuned for realistic levels (-6d
 
 ## THD Specifications
 
-### Ampex ATR-102 — Target: MOL @ +12dB (3% THD), E/O = 0.503
+Measured at 100Hz (where AC bias shielding has minimal effect):
+
+### Ampex ATR-102 — Target: MOL @ +12dB (3% THD), E/O = 0.5
 
 | Level | THD | E/O |
 |-------|-----|-----|
-| -12 dB | 0.07% | 4.71 |
-| -6 dB | 0.16% | 2.35 |
-| 0 dB | 0.38% | 1.17 |
-| +6 dB | 1.13% | 0.54 |
-| +12 dB | 2.74% | 0.22 |
+| -12 dB | 0.06% | — |
+| -6 dB | 0.13% | 1.82 |
+| 0 dB | 0.32% | 0.91 |
+| +6 dB | 1.02% | 0.45 |
+| +12 dB | 3.60% | 0.20 |
 
-### Studer A820 — Target: MOL @ +9dB (3% THD), E/O = 1.122
+### Studer A820 — Target: MOL @ +9dB (3% THD), E/O = 1.12
 
 | Level | THD | E/O |
 |-------|-----|-----|
-| -12 dB | 0.12% | 10.14 |
-| -6 dB | 0.24% | 5.08 |
-| 0 dB | 0.49% | 2.54 |
-| +6 dB | 1.75% | 1.20 |
-| +9 dB | 2.98% | 0.75 |
+| -12 dB | 0.22% | — |
+| -6 dB | 0.45% | 4.27 |
+| 0 dB | 0.95% | 2.12 |
+| +6 dB | 2.19% | 1.06 |
+| +9 dB | 3.42% | 0.74 |
 
 ## Technical Details
 
@@ -133,34 +145,67 @@ LOWTHD uses extremely level-dependent saturation tuned for realistic levels (-6d
 
 ### Performance
 
-Single 2x oversample, one J-A pass, efficient biquads. No neural networks or convolution. Multiple instances run simultaneously.
+Single 2x oversample, efficient biquads, no neural networks or convolution. Multiple instances run simultaneously.
 
 ### Saturation Parameters
 
-**Ampex:**
+**Ampex ATR-102:**
 ```
-Tanh: drive=0.20, asymmetry=1.12 | Atan: drive=6.5, mixMax=0.75
-J-A:  threshold=0.50, width=2.0  | a=50, k=0.005, c=0.95, α=1e-6
+Tanh: drive=0.175, asymmetry=1.15
+Atan: drive=4.0, mixMax=0.60, threshold=2.5
+J-A:  blendMax=0.70, threshold=1.0, width=2.5
+      a=50, k=0.005, c=0.96, α=2e-7
 ```
 
-**Studer:**
+**Studer A820:**
 ```
-Tanh: drive=0.12, asymmetry=1.38 | Atan: drive=5.5, mixMax=0.72, asym=1.42
-J-A:  threshold=0.45, width=2.5  | a=35, k=0.01, c=0.92, α=1e-5
+Tanh: drive=0.24, asymmetry=1.35
+Atan: drive=4.0, mixMax=0.65, threshold=2.0, asym=1.20
+J-A:  blendMax=0.75, threshold=0.8, width=2.5
+      a=45, k=0.008, c=0.92, α=5e-6
 ```
 
 ## Signal Flow
 
 ```
 INPUT → Drive → 2x Upsample → Envelope Follower
-      → De-emphasis (AC bias shielding)
-      → [J-A Hysteresis] ─┬─ Parallel Blend → Re-emphasis
-      → [Tanh → Atan]  ───┘
-      → Machine EQ (head bump) → Dispersive Allpass (phase smear)
-      → DC Block → Azimuth Delay (R channel)
-      → 2x Downsample → Crosstalk (Studer) → Wow Modulation
-      → Tolerance EQ → Print-through (Studer) → Volume → OUTPUT
+                                    │
+                    ┌───────────────┴───────────────┐
+                    ↓                               ↓
+                 HFCut                        Clean HF Path
+                    │                         (Input - HFCut)
+        ┌───────────┴───────────┐                   │
+        ↓                       ↓                   │
+    Tanh → Atan              J-A Core               │
+    (primary sat)         (hysteresis)              │
+        │                       │                   │
+        └───────┬───────────────┘                   │
+                ↓                                   │
+          Blend (level-dependent)                   │
+                │                                   │
+                └───────────────┬───────────────────┘
+                                ↓
+                    Sum (saturated + cleanHF)
+                                ↓
+                    Machine EQ (head bump)
+                                ↓
+                    Dispersive Allpass (phase smear)
+                                ↓
+                    DC Block → Azimuth Delay (R)
+                                ↓
+                    2x Downsample
+                                ↓
+                    Crosstalk (Studer) → Wow
+                                ↓
+                    Tolerance EQ → Print-through (Studer)
+                                ↓
+                           Volume → OUTPUT
 ```
+
+**Three parallel paths:**
+1. **Tanh → Atan** (primary saturation with level-dependent soft knee)
+2. **Jiles-Atherton** (physics-based hysteresis, blends in at higher levels)
+3. **Clean HF** (bypasses saturation entirely, preserves AC-bias-shielded frequencies)
 
 **Latency:** ~7 samples @ 44.1kHz (~0.16ms)
 
@@ -191,4 +236,4 @@ LOWTHD/
 
 Developed by Ben Sandoval
 
-DSP: Jiles-Atherton magnetic hysteresis, asymmetric tanh/atan saturation, AC bias shielding, dispersive allpass filtering.
+DSP: Jiles-Atherton magnetic hysteresis, asymmetric tanh/atan saturation, parallel AC bias shielding, dispersive allpass filtering.

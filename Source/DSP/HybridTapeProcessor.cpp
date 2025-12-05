@@ -13,7 +13,6 @@ HybridTapeProcessor::HybridTapeProcessor()
 void HybridTapeProcessor::setSampleRate(double sampleRate)
 {
     fs = sampleRate;
-    hfRestore.setSampleRate(sampleRate);
     hfCut.setSampleRate(sampleRate);
     jaCore.setSampleRate(sampleRate);
     machineEQ.setSampleRate(sampleRate);
@@ -55,7 +54,6 @@ void HybridTapeProcessor::reset()
 {
     dcBlocker1.reset();
     dcBlocker2.reset();
-    hfRestore.reset();
     hfCut.reset();
     jaCore.reset();
     machineEQ.reset();
@@ -96,69 +94,73 @@ void HybridTapeProcessor::updateCachedValues()
     if (isAmpexMode) {
         // AMPEX ATR-102 (MASTER MODE)
         // Target: MOL @ +12dB (3% THD), E/O ratio 0.503 (odd-dominant)
-        // Ampex is the CLEANER machine - higher headroom, lower THD at 0dB
+        // Target THD @ 0dB: 0.3-0.5% (clean but not sterile)
+        // With parallel HF path, tune for 100Hz THD (minimal clean HF dilution)
         jaParams.M_s = 1.0;
         jaParams.a = 50.0;
-        jaParams.k = 0.005;
-        jaParams.c = 0.95;
-        jaParams.alpha = 1.0e-6;
+        jaParams.k = 0.005;        // Moderate k
+        jaParams.c = 0.96;         // High reversibility for clean character
+        jaParams.alpha = 2.0e-7;   // Low coupling
         jaCore.setParameters(jaParams);
         jaInputScale = 1.0;
-        jaOutputScale = 180.0;     // Increased significantly for +12dB MOL
+        jaOutputScale = 80.0;      // Moderate J-A contribution
 
-        // Currently at +18dB MOL, need to hit +12dB (6dB more saturation)
-        // That's roughly 2x the saturation, so increase drives substantially
-        tanhDrive = 0.22;          // Doubled from 0.14 for +12dB MOL
-        tanhAsymmetry = 1.18;      // More asymmetry for E/O ~0.5
+        // Tanh is main saturation - tune for 0.3-0.5% THD at 0dB, MOL at +12dB
+        tanhDrive = 0.175;         // Main saturation drive
+        tanhAsymmetry = 1.15;      // Moderate asymmetry for E/O ~0.5
         tanhBias = tanhAsymmetry - 1.0;
         tanhDcOffset = std::tanh(tanhDrive * tanhBias);
         double tanhNorm = tanhDrive * (1.0 - tanhDcOffset * tanhDcOffset);
         tanhNormFactor = (tanhNorm > 0.001) ? (1.0 / tanhNorm) : 1.0;
 
-        jaBlendMax = 0.95;         // Higher J-A for more saturation
-        jaBlendThreshold = 0.45;   // Lower threshold - engage earlier
-        jaBlendWidth = 2.0;        // Faster blend
+        // J-A adds hysteresis character at higher levels
+        jaBlendMax = 0.70;         // Moderate J-A blend
+        jaBlendThreshold = 1.0;    // Engage at higher levels
+        jaBlendWidth = 2.5;        // Gradual transition
 
-        atanDrive = 7.0;           // Higher drive for steeper curve
-        atanMixMax = 0.80;         // More atan for compression
-        atanThreshold = 0.35;      // Lower threshold - engage earlier
-        atanWidth = 2.0;           // Tighter blend
+        // Atan adds steeper knee at high levels to hit MOL at +12dB
+        atanDrive = 4.0;           // Reduced atan drive
+        atanMixMax = 0.60;         // Reduced atan contribution
+        atanThreshold = 2.5;       // Engage later (above +8dB)
+        atanWidth = 3.0;           // Very gradual transition
         atanAsymmetry = 1.0;       // Symmetric for odd-dominant
         useAsymmetricAtan = false;
 
         // ATR-102: 0.25μm ceramic head gap = negligible gap-induced phase smear
-        // Transformerless config - minimal electronics contribution
         dispersiveCornerFreq = 10000.0;
     } else {
         // STUDER A820 (TRACKS MODE)
         // Target: MOL @ +9dB (3% THD), E/O ratio 1.122 (even-dominant)
-        // Studer is the WARMER machine - lower headroom, higher THD at 0dB
+        // Target THD @ 0dB: ~1% (warmer than Ampex)
+        // With parallel HF path, tune for 100Hz THD (minimal clean HF dilution)
         jaParams.M_s = 1.0;
-        jaParams.a = 35.0;
-        jaParams.k = 0.01;
-        jaParams.c = 0.92;
-        jaParams.alpha = 1.0e-5;
+        jaParams.a = 45.0;         // Higher = less aggressive
+        jaParams.k = 0.008;        // Reduced for less high-level saturation
+        jaParams.c = 0.92;         // More reversible
+        jaParams.alpha = 5.0e-6;   // Reduced coupling
         jaCore.setParameters(jaParams);
         jaInputScale = 1.0;
-        jaOutputScale = 120.0;     // Reduced - was hitting MOL at +5.5dB (too hot)
+        jaOutputScale = 100.0;     // Moderate output
 
-        // Currently hitting 3% at +5.5dB, need to reduce drive to hit +9dB
-        tanhDrive = 0.12;          // Reduced from 0.18 for +9dB MOL
-        tanhAsymmetry = 1.35;      // Keep for E/O ~1.12
+        // Tanh: tune for ~1% THD at 0dB, MOL at +9dB
+        tanhDrive = 0.24;          // Moderate drive
+        tanhAsymmetry = 1.35;      // Higher asymmetry for E/O ~1.12
         tanhBias = tanhAsymmetry - 1.0;
         tanhDcOffset = std::tanh(tanhDrive * tanhBias);
         double tanhNorm = tanhDrive * (1.0 - tanhDcOffset * tanhDcOffset);
         tanhNormFactor = (tanhNorm > 0.001) ? (1.0 / tanhNorm) : 1.0;
 
-        jaBlendMax = 0.95;         // High J-A for warmer character
-        jaBlendThreshold = 0.45;   // Moderate threshold
-        jaBlendWidth = 2.2;        // Moderate transition
+        // J-A engages at moderate levels for warm character
+        jaBlendMax = 0.75;         // Moderate J-A
+        jaBlendThreshold = 0.8;    // Engage at moderate levels
+        jaBlendWidth = 2.5;        // Gradual transition
 
-        atanDrive = 5.0;           // Reduced for higher headroom
-        atanMixMax = 0.70;         // Moderate atan contribution
-        atanThreshold = 0.35;      // Moderate threshold
-        atanWidth = 2.2;           // Moderate blend
-        atanAsymmetry = 1.40;      // Asymmetric for even-harmonic character
+        // Atan: steeper knee at high levels only
+        atanDrive = 4.0;           // Moderate atan drive
+        atanMixMax = 0.65;         // Moderate atan contribution
+        atanThreshold = 2.0;       // Engage at higher levels (+6dB)
+        atanWidth = 2.5;           // Wide blend
+        atanAsymmetry = 1.20;      // Reduced asymmetry for E/O ~1.12
         useAsymmetricAtan = true;
         atanBias = atanAsymmetry - 1.0;
         atanDcOffset = std::atan(atanDrive * atanBias);
@@ -166,7 +168,6 @@ void HybridTapeProcessor::updateCachedValues()
         double atanNorm = atanDrive / (1.0 + driveBias * driveBias);
         atanNormFactor = (atanNorm > 0.001) ? (1.0 / atanNorm) : 1.0;
 
-        // A820: 3μm head gap = phase smear onset lower in frequency
         dispersiveCornerFreq = 2800.0;
     }
 
@@ -183,8 +184,7 @@ void HybridTapeProcessor::updateCachedValues()
     // Update machine EQ
     machineEQ.setMachine(isAmpexMode ? MachineEQ::Machine::Ampex : MachineEQ::Machine::Studer);
 
-    // Update AC bias shielding curves for selected machine
-    hfRestore.setMachineMode(isAmpexMode);
+    // Update AC bias shielding curve for selected machine
     hfCut.setMachineMode(isAmpexMode);
 }
 
@@ -204,9 +204,16 @@ double HybridTapeProcessor::processSample(double input)
     double blendRatio = std::clamp((jaEnvelope - jaBlendThreshold) / jaBlendWidth, 0.0, 1.0);
     double jaBlend = jaBlendMax * blendRatio * blendRatio * (3.0 - 2.0 * blendRatio);
 
-    // AC bias shielding (cut highs before saturation)
+    // === PARALLEL PATH PROCESSING (AC Bias Shielding) ===
+    // The high bias frequency linearizes HF recording, so HF bypasses saturation
+
+    // Path 1: HFCut output goes to saturation (LF/mid content)
     double hfCutSignal = hfCut.processSample(gained);
 
+    // Path 2: The "shielded" HF (what was cut) bypasses saturation entirely
+    double cleanHF = gained - hfCutSignal;
+
+    // === SATURATION PATH ===
     // J-A path (physics-based hysteresis)
     double jaPath = jaCore.process(hfCutSignal * jaInputScale) * jaOutputScale;
 
@@ -219,11 +226,13 @@ double HybridTapeProcessor::processSample(double input)
     double atanOut = useAsymmetricAtan ? asymmetricAtan(tanhOut) : softAtan(tanhOut);
     double tanhPath = tanhOut * (1.0 - atanAmount) + atanOut * atanAmount;
 
-    // Parallel blend
-    double blended = jaPath * jaBlend + tanhPath * (1.0 - jaBlend);
+    // Blend J-A and tanh paths
+    double saturatedPath = jaPath * jaBlend + tanhPath * (1.0 - jaBlend);
 
-    // HF restore (restore highs after saturation)
-    double output = hfRestore.processSample(blended);
+    // === COMBINE PATHS ===
+    // Sum saturated signal (with HF removed) + clean HF (bypassed saturation)
+    // cleanHfBlend controls how much of the shielded HF is clean vs saturated
+    double output = saturatedPath + cleanHF * cleanHfBlend;
 
     // Machine-specific EQ (always on)
     output = machineEQ.processSample(output);
