@@ -93,9 +93,10 @@ void HybridTapeProcessor::updateCachedValues()
 
     if (isAmpexMode) {
         // AMPEX ATR-102 (MASTER MODE)
-        // Real tape THD targets (cubic curve, 3dB/dB slope):
-        //   -6dB: 0.02%, 0dB: 0.08%, +6dB: 0.40%, +12dB: 3.0% (MOL)
+        // THD targets: -6dB=0.02%, 0dB=0.08%, +6dB=0.40%, MOL(3%)=+12dB
         // E/O ratio ~0.5 (odd-dominant)
+
+        // === LAYER 1: J-A (hysteresis feel) ===
         jaParams.M_s = 1.0;
         jaParams.a = 50.0;
         jaParams.k = 0.005;
@@ -103,41 +104,27 @@ void HybridTapeProcessor::updateCachedValues()
         jaParams.alpha = 2.0e-7;
         jaCore.setParameters(jaParams);
         jaInputScale = 1.0;
-        jaOutputScale = 35.0;      // Lower J-A - Ampex is the "clean" machine
+        jaOutputScale = 50.0;
+        jaBlendMax = 0.005;        // Very small - tune for -6dB ~0.02%
+        jaBlendThreshold = 0.05;
+        jaBlendWidth = 0.45;
 
-        // Asymmetric tanh - compromise between -6dB and 0dB
-        tanhDrive = 0.068;         // Balanced
-        tanhAsymmetry = 1.23;      // Asymmetry for E/O ~0.5
-        tanhBias = tanhAsymmetry - 1.0;
-        tanhDcOffset = std::tanh(tanhDrive * tanhBias);
-        double tanhNorm = tanhDrive * (1.0 - tanhDcOffset * tanhDcOffset);
-        tanhNormFactor = (tanhNorm > 0.001) ? (1.0 / tanhNorm) : 1.0;
+        // === LAYER 2: Atan (symmetric now - bias is global) ===
+        atanMix = 0.25;
+        atanThreshold = 0.18;
+        atanWidth = 2.2;
+        atanDrive = 0.6;
 
-        // J-A adds odd harmonics - lower for Ampex (clean machine)
-        jaBlendMax = 0.25;         // Lower J-A than Studer
-        jaBlendThreshold = 0.75;   // Engage around -3dB
-        jaBlendWidth = 3.0;        // Moderate transition
+        // Global input bias for E/O ~0.5 (odd-dominant)
+        inputBias = 0.06;           // Small bias for Ampex
 
-        // Asymmetric atan - earlier engage with wider ramp
-        atanDrive = 1.5;           // Lower drive
-        atanMixMax = 0.65;         // Higher max to compensate
-        atanThreshold = 0.40;      // Earlier engage (~-8dB)
-        atanWidth = 5.0;           // Wider transition for even spread
-        atanAsymmetry = 1.22;      // Match tanh for E/O ~0.5
-        useAsymmetricAtan = true;
-        atanBias = atanAsymmetry - 1.0;
-        atanDcOffset = std::atan(atanDrive * atanBias);
-        double driveBias = atanDrive * atanBias;
-        double atanNorm = atanDrive / (1.0 + driveBias * driveBias);
-        atanNormFactor = (atanNorm > 0.001) ? (1.0 / atanNorm) : 1.0;
-
-        // ATR-102: 0.25μm ceramic head gap
         dispersiveCornerFreq = 10000.0;
     } else {
         // STUDER A820 (TRACKS MODE)
-        // Real tape THD targets (cubic curve, 3dB/dB slope):
-        //   -6dB: 0.07%, 0dB: 0.25%, +6dB: 1.25%, +9dB: 3.0% (MOL)
+        // THD targets: -6dB=0.07%, 0dB=0.25%, +6dB=1.25%, MOL(3%)=+9dB
         // E/O ratio ~1.12 (even-dominant)
+
+        // === LAYER 1: J-A (hysteresis feel) ===
         jaParams.M_s = 1.0;
         jaParams.a = 45.0;
         jaParams.k = 0.008;
@@ -145,33 +132,19 @@ void HybridTapeProcessor::updateCachedValues()
         jaParams.alpha = 5.0e-6;
         jaCore.setParameters(jaParams);
         jaInputScale = 1.0;
-        jaOutputScale = 50.0;      // Higher J-A than Ampex for warmer feel
+        jaOutputScale = 50.0;
+        jaBlendMax = 0.012;        // More than Ampex - tune for -6dB ~0.07%
+        jaBlendThreshold = 0.02;
+        jaBlendWidth = 0.48;
 
-        // Tanh for Studer's warmer character
-        tanhDrive = 0.095;         // Balanced
-        tanhAsymmetry = 1.42;      // Higher asymmetry for E/O ~1.12
-        tanhBias = tanhAsymmetry - 1.0;
-        tanhDcOffset = std::tanh(tanhDrive * tanhBias);
-        double tanhNorm = tanhDrive * (1.0 - tanhDcOffset * tanhDcOffset);
-        tanhNormFactor = (tanhNorm > 0.001) ? (1.0 / tanhNorm) : 1.0;
+        // === LAYER 2: Atan (symmetric now - bias is global) ===
+        atanMix = 0.35;
+        atanThreshold = 0.20;
+        atanWidth = 1.8;
+        atanDrive = 0.95;
 
-        // J-A for feel - higher than Ampex for warmer Studer character
-        jaBlendMax = 0.40;         // Higher J-A than Ampex (0.25)
-        jaBlendThreshold = 0.6;    // Engage earlier
-        jaBlendWidth = 2.5;        // Moderate transition
-
-        // Atan for curve - earlier engage with wider ramp
-        atanDrive = 2.0;           // Moderate drive
-        atanMixMax = 0.75;         // Higher max
-        atanThreshold = 0.40;      // Earlier engage (~-8dB)
-        atanWidth = 4.5;           // Wider transition for even spread
-        atanAsymmetry = 1.40;      // Asymmetry for E/O ~1.12
-        useAsymmetricAtan = true;
-        atanBias = atanAsymmetry - 1.0;
-        atanDcOffset = std::atan(atanDrive * atanBias);
-        double driveBias = atanDrive * atanBias;
-        double atanNorm = atanDrive / (1.0 + driveBias * driveBias);
-        atanNormFactor = (atanNorm > 0.001) ? (1.0 / atanNorm) : 1.0;
+        // Global input bias for E/O ~1.12 (even-dominant)
+        inputBias = 0.22;           // Larger bias for Studer's even-dominant character
 
         dispersiveCornerFreq = 2800.0;
     }
@@ -205,9 +178,14 @@ double HybridTapeProcessor::processSample(double input)
         jaEnvelope += 0.020 * (absGained - jaEnvelope);
     }
 
-    // Level-dependent J-A blend with cubic smoothstep
-    double blendRatio = std::clamp((jaEnvelope - jaBlendThreshold) / jaBlendWidth, 0.0, 1.0);
-    double jaBlend = jaBlendMax * blendRatio * blendRatio * (3.0 - 2.0 * blendRatio);
+    // J-A blend - can be constant or level-dependent
+    double jaBlend;
+    if (jaBlendWidth > 0.0) {
+        double blendRatio = std::clamp((jaEnvelope - jaBlendThreshold) / jaBlendWidth, 0.0, 1.0);
+        jaBlend = jaBlendMax * blendRatio * blendRatio * (3.0 - 2.0 * blendRatio);
+    } else {
+        jaBlend = jaBlendMax;  // Constant blend when width = 0
+    }
 
     // === PARALLEL PATH PROCESSING (AC Bias Shielding) ===
     // The high bias frequency linearizes HF recording, so HF bypasses saturation
@@ -218,21 +196,28 @@ double HybridTapeProcessor::processSample(double input)
     // Path 2: The "shielded" HF (what was cut) bypasses saturation entirely
     double cleanHF = gained - hfCutSignal;
 
-    // === SATURATION PATH ===
-    // J-A path (physics-based hysteresis)
-    double jaPath = jaCore.process(hfCutSignal * jaInputScale) * jaOutputScale;
+    // === GLOBAL INPUT BIAS FOR EVEN HARMONICS ===
+    // Apply asymmetric bias BEFORE all saturation stages
+    // This makes both J-A and atan see an asymmetric signal
+    double biasedSignal = hfCutSignal + inputBias;
 
-    // Tanh path (asymmetric saturation)
-    double tanhOut = asymmetricTanh(hfCutSignal);
+    // === SATURATION ARCHITECTURE ===
+    // Layer 1: J-A (hysteresis character, lower levels)
+    // Layer 2: Atan (cubic character, higher levels)
 
-    // Level-dependent atan in series
+    // 1. J-A for hysteresis feel - processes biased signal
+    double jaPath = jaCore.process(biasedSignal * jaInputScale) * jaOutputScale;
+
+    // 2. Atan for cubic character - processes biased signal (symmetric atan now)
+    double atanOut = softAtan(biasedSignal);
+
+    // Blend J-A into signal
+    double mainPath = hfCutSignal * (1.0 - jaBlend) + jaPath * jaBlend;
+
+    // Level-dependent atan blend (engages at higher levels where J-A drops off)
     double atanBlendRatio = std::clamp((jaEnvelope - atanThreshold) / atanWidth, 0.0, 1.0);
-    double atanAmount = atanMixMax * atanBlendRatio * atanBlendRatio * (3.0 - 2.0 * atanBlendRatio);
-    double atanOut = useAsymmetricAtan ? asymmetricAtan(tanhOut) : softAtan(tanhOut);
-    double tanhPath = tanhOut * (1.0 - atanAmount) + atanOut * atanAmount;
-
-    // Blend J-A and tanh paths
-    double saturatedPath = jaPath * jaBlend + tanhPath * (1.0 - jaBlend);
+    double atanBlend = atanMix * atanBlendRatio * atanBlendRatio * (3.0 - 2.0 * atanBlendRatio);
+    double saturatedPath = mainPath * (1.0 - atanBlend) + atanOut * atanBlend;
 
     // === COMBINE PATHS ===
     // Sum saturated signal (with HF removed) + clean HF (bypassed saturation)
@@ -254,25 +239,10 @@ double HybridTapeProcessor::processSample(double input)
     return output;
 }
 
-double HybridTapeProcessor::asymmetricTanh(double x)
-{
-    double biased = x + tanhBias;
-    double saturated = std::tanh(tanhDrive * biased);
-    return (saturated - tanhDcOffset) * tanhNormFactor;
-}
-
 double HybridTapeProcessor::softAtan(double x)
 {
     if (atanDrive < 0.001) return x;
     return std::atan(atanDrive * x) / atanDrive;
-}
-
-double HybridTapeProcessor::asymmetricAtan(double x)
-{
-    if (atanDrive < 0.001) return x;
-    double biased = x + atanBias;
-    double saturated = std::atan(atanDrive * biased);
-    return (saturated - atanDcOffset) * atanNormFactor;
 }
 
 double HybridTapeProcessor::processRightChannel(double input)

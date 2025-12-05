@@ -34,8 +34,8 @@ LOWTHD models the tape and heads, not the amplifiers that were designed to stay 
 
 | Mode | Machine | Character | THD @ 0dB | E/O Ratio |
 |------|---------|-----------|-----------|-----------|
-| **Master** | Ampex ATR-102 | Cleaner, faster, odd-dominant | ~0.32% | 0.45 |
-| **Tracks** | Studer A820 | Softer, warmer, even-dominant | ~0.95% | 1.06 |
+| **Master** | Ampex ATR-102 | Cleaner, faster, odd-dominant | ~0.08% | 0.54 |
+| **Tracks** | Studer A820 | Softer, warmer, even-dominant | ~0.28% | 1.17 |
 
 ### AC Bias Shielding (Parallel Clean HF Path)
 
@@ -64,11 +64,19 @@ The ATR-102's exceptionally high 432 kHz bias was a major engineering achievemen
 
 ### Saturation Architecture
 
-Three complementary stages with level-dependent blending:
+Two complementary saturation layers with global DC bias for E/O control:
 
-1. **Asymmetric Tanh** — Primary saturation curve with even/odd harmonic balance control
-2. **Jiles-Atherton Hysteresis** — Physics-based magnetic domain model, blends in at higher levels for authentic tape compression
-3. **Level-Dependent Atan** — Soft-clipping knee at high levels for MOL targeting
+1. **Jiles-Atherton Hysteresis** — Physics-based magnetic domain model for authentic tape compression feel, level-dependent blend
+2. **Symmetric Atan** — Soft cubic saturation for smooth THD curve, engages at higher levels
+
+**Global Input Bias for Even/Odd Control:**
+
+Real tape machines are DC-coupled, and small bias offsets affect the harmonic balance. LOWTHD applies a global DC bias *before* all saturation stages:
+
+- Ampex: 0.06 bias (odd-dominant, E/O ~0.5)
+- Studer: 0.22 bias (even-dominant, E/O ~1.12)
+
+This is physically accurate—the bias shifts where the signal sits on the saturation S-curve, creating asymmetric clipping that generates even harmonics. DC blocking at output removes any residual offset.
 
 The saturation blend adapts to input level via envelope follower with cubic smoothstep transitions.
 
@@ -109,8 +117,9 @@ Head gap geometry creates frequency-dependent phase shifts via cascaded allpass 
 
 LOWTHD uses extremely level-dependent saturation tuned for realistic levels (-6dB to +3dB). The cumulative effect of subtle colorations creates the "tape sound":
 
-- Asymmetric saturation: <1% controlled harmonics at 0dB
-- Jiles-Atherton hysteresis: Physics-based compression at higher levels
+- Global DC bias: Controls even/odd harmonic ratio (physically accurate)
+- Jiles-Atherton hysteresis: Physics-based compression at lower levels
+- Symmetric atan: Smooth cubic saturation at higher levels
 - AC bias shielding: HF bypasses saturation (parallel clean path)
 - Head bump: +1-2dB low frequency lift
 - Phase smear: 10-21μs transient softening
@@ -122,25 +131,27 @@ LOWTHD uses extremely level-dependent saturation tuned for realistic levels (-6d
 
 Measured at 100Hz (where AC bias shielding has minimal effect):
 
-### Ampex ATR-102 — Target: MOL @ +12dB (3% THD), E/O = 0.5
+### Ampex ATR-102 — Target: E/O ~0.5 (odd-dominant)
 
-| Level | THD | E/O |
-|-------|-----|-----|
-| -12 dB | 0.06% | — |
-| -6 dB | 0.13% | 1.82 |
-| 0 dB | 0.32% | 0.91 |
-| +6 dB | 1.02% | 0.45 |
-| +12 dB | 3.60% | 0.20 |
+| Level | THD | Target | Error |
+|-------|-----|--------|-------|
+| -12 dB | 0.005% | ~0.005% | — |
+| -6 dB | 0.024% | 0.02% | +21% |
+| 0 dB | 0.078% | 0.08% | -2.5% |
+| +6 dB | 0.381% | 0.40% | -4.7% |
 
-### Studer A820 — Target: MOL @ +9dB (3% THD), E/O = 1.12
+**E/O Ratio @ 0dB: 0.54** (target: 0.50, +7.7%)
 
-| Level | THD | E/O |
-|-------|-----|-----|
-| -12 dB | 0.22% | — |
-| -6 dB | 0.45% | 4.27 |
-| 0 dB | 0.95% | 2.12 |
-| +6 dB | 2.19% | 1.06 |
-| +9 dB | 3.42% | 0.74 |
+### Studer A820 — Target: E/O ~1.12 (even-dominant)
+
+| Level | THD | Target | Error |
+|-------|-----|--------|-------|
+| -12 dB | 0.024% | ~0.02% | +20% |
+| -6 dB | 0.068% | 0.07% | -2.3% |
+| 0 dB | 0.280% | 0.25% | +12% |
+| +6 dB | 1.130% | 1.25% | -9.6% |
+
+**E/O Ratio @ 0dB: 1.17** (target: 1.12, +4.0%)
 
 ## Technical Details
 
@@ -156,17 +167,17 @@ Single 2x oversample, efficient biquads, no neural networks or convolution. Mult
 
 **Ampex ATR-102:**
 ```
-Tanh: drive=0.175, asymmetry=1.15
-Atan: drive=4.0, mixMax=0.60, threshold=2.5
-J-A:  blendMax=0.70, threshold=1.0, width=2.5
+Global Bias: 0.06 (odd-dominant E/O ~0.5)
+Atan: drive=0.6, mix=0.25, threshold=0.18, width=2.2
+J-A:  blendMax=0.005, threshold=0.05, width=0.45
       a=50, k=0.005, c=0.96, α=2e-7
 ```
 
 **Studer A820:**
 ```
-Tanh: drive=0.24, asymmetry=1.35
-Atan: drive=4.0, mixMax=0.65, threshold=2.0, asym=1.20
-J-A:  blendMax=0.75, threshold=0.8, width=2.5
+Global Bias: 0.22 (even-dominant E/O ~1.12)
+Atan: drive=0.95, mix=0.35, threshold=0.20, width=1.8
+J-A:  blendMax=0.012, threshold=0.02, width=0.48
       a=45, k=0.008, c=0.92, α=5e-6
 ```
 
@@ -179,10 +190,13 @@ INPUT → Drive → 2x Upsample → Envelope Follower
                     ↓                               ↓
                  HFCut                        Clean HF Path
                     │                         (Input - HFCut)
+                    ↓                               │
+              + Global Bias                         │
+                    │                               │
         ┌───────────┴───────────┐                   │
         ↓                       ↓                   │
-    Tanh → Atan              J-A Core               │
-    (primary sat)         (hysteresis)              │
+    J-A Core                  Atan                  │
+   (hysteresis)         (cubic saturation)          │
         │                       │                   │
         └───────┬───────────────┘                   │
                 ↓                                   │
@@ -207,10 +221,11 @@ INPUT → Drive → 2x Upsample → Envelope Follower
                            Volume → OUTPUT
 ```
 
-**Three parallel paths:**
-1. **Tanh → Atan** (primary saturation with level-dependent soft knee)
-2. **Jiles-Atherton** (physics-based hysteresis, blends in at higher levels)
-3. **Clean HF** (bypasses saturation entirely, preserves AC-bias-shielded frequencies)
+**Key architecture:**
+1. **Global DC Bias** — Applied before both saturators to control E/O ratio (Ampex: 0.06, Studer: 0.22)
+2. **Jiles-Atherton** — Physics-based hysteresis for tape compression feel at lower levels
+3. **Symmetric Atan** — Smooth cubic saturation that engages at higher levels
+4. **Clean HF** — Bypasses saturation entirely, preserves AC-bias-shielded frequencies
 
 **Latency:** ~7 samples @ 44.1kHz (~0.16ms)
 
@@ -241,4 +256,4 @@ LOWTHD/
 
 Developed by Ben Sandoval
 
-DSP: Jiles-Atherton magnetic hysteresis, asymmetric tanh/atan saturation, parallel AC bias shielding, dispersive allpass filtering.
+DSP: Jiles-Atherton magnetic hysteresis, symmetric atan saturation with global DC bias for E/O control, parallel AC bias shielding, dispersive allpass filtering.

@@ -17,18 +17,19 @@ namespace TapeHysteresis
 /**
  * Hybrid Tape Saturation Processor
  *
- * Three parallel paths with level-dependent blending:
- *   1. Tanh → Atan (primary saturation with soft knee at high levels)
- *   2. Jiles-Atherton (physics-based hysteresis, blends in at higher levels)
- *   3. Clean HF (bypasses saturation entirely for AC-bias-shielded frequencies)
+ * Architecture with global DC bias and level-dependent blending:
+ *   1. Global Input Bias - Controls E/O ratio (physically accurate DC coupling)
+ *   2. J-A Hysteresis - Physics-based magnetic domain model for tape compression
+ *   3. Symmetric Atan - Smooth cubic saturation at higher levels
+ *   4. Clean HF Path - Bypasses saturation (AC bias shielding)
  *
  * MASTER MODE (Ampex ATR-102):
- *   - MOL (3% THD) at +12dB, E/O = 0.45 (odd-dominant)
- *   - THD @ 0dB: ~0.32%
+ *   - THD: -12dB=0.005%, -6dB=0.02%, 0dB=0.08%, +6dB=0.40%
+ *   - E/O ratio ~0.54 (odd-dominant), inputBias=0.06
  *
  * TRACKS MODE (Studer A820):
- *   - MOL (3% THD) at +9dB, E/O = 1.06 (even-dominant)
- *   - THD @ 0dB: ~0.95%
+ *   - THD: -12dB=0.02%, -6dB=0.07%, 0dB=0.28%, +6dB=1.13%
+ *   - E/O ratio ~1.17 (even-dominant), inputBias=0.22
  */
 class HybridTapeProcessor
 {
@@ -61,23 +62,15 @@ private:
     bool isAmpexMode = true;
     double fs = 48000.0;
 
-    // Tanh saturation
-    double tanhDrive = 0.175;
-    double tanhAsymmetry = 1.15;
-    double tanhBias = 0.0;
-    double tanhDcOffset = 0.0;
-    double tanhNormFactor = 1.0;
+    // Global input bias for E/O ratio (even harmonics)
+    // Physically accurate: tape machines are DC-coupled
+    double inputBias = 0.0;
 
-    // Atan saturation (level-dependent, in series after tanh)
-    double atanDrive = 4.0;
-    double atanMixMax = 0.60;
-    double atanThreshold = 2.5;
-    double atanWidth = 3.0;
-    double atanAsymmetry = 1.0;
-    bool useAsymmetricAtan = false;
-    double atanBias = 0.0;
-    double atanDcOffset = 0.0;
-    double atanNormFactor = 1.0;
+    // Atan saturation (symmetric - bias applied globally)
+    double atanDrive = 2.5;
+    double atanMix = 0.0;          // Max blend amount
+    double atanThreshold = 0.5;    // Engage around -6dB
+    double atanWidth = 1.0;        // Transition width
 
     // J-A blend parameters
     double jaBlendMax = 0.70;
@@ -133,9 +126,7 @@ private:
     MachineEQ machineEQ;
 
     void updateCachedValues();
-    double asymmetricTanh(double x);
     double softAtan(double x);
-    double asymmetricAtan(double x);
 };
 
 } // namespace TapeHysteresis

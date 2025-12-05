@@ -38,7 +38,7 @@ double measureTHD(const std::vector<double>& signal, double sampleRate, double t
 
 struct THDResult {
     double thd_m12, thd_m6, thd_0, thd_3, thd_6;
-    double eo_6;
+    double eo_0;  // E/O measured at 0dB (typical operating level)
 };
 
 THDResult measureMachine(bool isAmpex) {
@@ -66,7 +66,7 @@ THDResult measureMachine(bool isAmpex) {
         
         double h2, h3;
         *results[i] = measureTHD(output, sampleRate, testFreq, &h2, &h3);
-        if (i == 4) result.eo_6 = (h3 > 0.0001) ? h2 / h3 : 0;
+        if (i == 2) result.eo_0 = (h3 > 0.0001) ? h2 / h3 : 0;  // Measure E/O at 0dB
     }
     
     return result;
@@ -88,7 +88,7 @@ int main() {
     printf("    0dB    %6.3f%%    0.08%%   %+.1f%%\n", ampex.thd_0, 100*(ampex.thd_0 - 0.08)/0.08);
     printf("   +3dB    %6.3f%%\n", ampex.thd_3);
     printf("   +6dB    %6.3f%%    0.40%%   %+.1f%%\n", ampex.thd_6, 100*(ampex.thd_6 - 0.40)/0.40);
-    printf("   E/O     %6.2f      0.50    %+.1f%%\n", ampex.eo_6, 100*(ampex.eo_6 - 0.5)/0.5);
+    printf("   E/O@0dB %6.2f      0.50    %+.1f%%\n", ampex.eo_0, 100*(ampex.eo_0 - 0.5)/0.5);
     
     std::cout << "\nSTUDER A820:\n";
     std::cout << "  Level     Actual    Target    Error\n";
@@ -97,7 +97,7 @@ int main() {
     printf("    0dB    %6.3f%%    0.25%%   %+.1f%%\n", studer.thd_0, 100*(studer.thd_0 - 0.25)/0.25);
     printf("   +3dB    %6.3f%%\n", studer.thd_3);
     printf("   +6dB    %6.3f%%    1.25%%   %+.1f%%\n", studer.thd_6, 100*(studer.thd_6 - 1.25)/1.25);
-    printf("   E/O     %6.2f      1.12    %+.1f%%\n", studer.eo_6, 100*(studer.eo_6 - 1.12)/1.12);
+    printf("   E/O@0dB %6.2f      1.12    %+.1f%%\n", studer.eo_0, 100*(studer.eo_0 - 1.12)/1.12);
     
     // Cubic curve check: THD should roughly double every 3dB (factor of sqrt(2) in amplitude)
     // i.e., THD(+3dB) / THD(0dB) should be ~2, THD(+6dB) / THD(+3dB) should be ~2
